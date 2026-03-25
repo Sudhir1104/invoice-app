@@ -681,6 +681,112 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
 
+  /* ── Login screen overlay ── */
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #E8E4D0;
+    display: flex; align-items: center; justify-content: center;
+    background-image: repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(160,150,100,0.04) 2px,rgba(160,150,100,0.04) 4px);
+  }
+  .login-overlay.hidden { display: none; }
+  .login-card {
+    background: var(--paper);
+    border: 1px solid #C8C0A0;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    padding: 40px 36px 36px;
+    max-width: 380px; width: 90%;
+    text-align: center;
+    position: relative;
+  }
+  .login-card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(to right, #B8A870, #D4C888);
+    border-right: 1px solid #A09050;
+  }
+  .login-logo-title {
+    font-family: 'IM Fell English', serif;
+    font-size: 24px; color: var(--ink);
+    border: 2px solid var(--ink);
+    padding: 8px 12px; margin-bottom: 6px;
+  }
+  .login-sub {
+    font-family: 'Inconsolata', monospace;
+    font-size: 11px; letter-spacing: 1.5px;
+    color: var(--ink-faint); text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+  .login-btn {
+    width: 100%; padding: 13px 20px; margin-bottom: 12px;
+    border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 15px; font-weight: 700;
+    letter-spacing: 0.3px; transition: all 0.15s; display: flex;
+    align-items: center; justify-content: center; gap: 10px;
+  }
+  .login-btn:active { transform: scale(0.97); }
+  .login-btn-google { background: #fff; color: #3c4043; border: 1.5px solid #dadce0; }
+  .login-btn-google:hover { background: #f8f9fa; }
+  .login-divider {
+    font-family: 'Inconsolata', monospace; font-size: 11px;
+    color: var(--ink-faint); letter-spacing: 2px;
+    margin: 16px 0; position: relative;
+  }
+  .login-divider::before, .login-divider::after {
+    content: ''; position: absolute; top: 50%;
+    width: 38%; height: 1px; background: var(--line-light);
+  }
+  .login-divider::before { left: 0; }
+  .login-divider::after  { right: 0; }
+  .login-input {
+    width: 100%; padding: 11px 14px; margin-bottom: 10px;
+    border: 1.5px solid var(--line); border-radius: 6px;
+    font-family: 'Inconsolata', monospace; font-size: 14px;
+    color: var(--ink); background: transparent; outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-input:focus { border-color: var(--ink); }
+  .login-btn-email { background: var(--ink); color: #fff; }
+  .login-btn-email:hover { background: var(--ink-light); }
+  .login-switch {
+    font-family: 'Inconsolata', monospace; font-size: 12px;
+    color: var(--ink-faint); margin-top: 14px; cursor: pointer;
+  }
+  .login-switch span { color: var(--ink); text-decoration: underline; cursor: pointer; }
+  .login-error {
+    font-family: 'Inconsolata', monospace; font-size: 12px;
+    color: var(--red); margin-bottom: 10px; min-height: 16px;
+  }
+
+  /* ── User bar in toolbar ── */
+  .user-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Inconsolata', monospace; font-size: 12px;
+    color: #4A3F00;
+  }
+  .user-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--ink); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .user-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-signout {
+    padding: 5px 10px; border-radius: 6px;
+    background: transparent; border: 1px solid #C8A060;
+    font-family: 'Inconsolata', monospace; font-size: 11px;
+    color: #4A3F00; cursor: pointer; letter-spacing: 0.5px;
+  }
+  .btn-signout:hover { background: rgba(0,0,0,0.06); }
+
+  /* ── Sync indicator ── */
+  .sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #aaa; display: inline-block; margin-left: 4px;
+    transition: background 0.3s;
+  }
+  .sync-dot.syncing { background: #F0C060; }
+  .sync-dot.synced  { background: #4CAF50; }
+
   /* ── Print / PDF styles ── */
   @media print {
     body { background: none; padding: 0; }
@@ -699,22 +805,226 @@
     .col-gst { display: none; }
     .items-table th.gst-col { display: none; }
   }
-</style>
+
+  /* ── Send / Share modal ── */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 8000;
+    background: rgba(30,28,20,0.55);
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--paper); border: 1px solid #C8C0A0;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+    padding: 32px 28px 28px; max-width: 440px; width: 92%;
+    position: relative; border-radius: 2px;
+  }
+  .modal::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(to right, #B8A870, #D4C888);
+    border-right: 1px solid #A09050;
+  }
+  .modal-title {
+    font-family: 'IM Fell English', serif; font-size: 20px;
+    color: var(--ink); margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-close {
+    background: none; border: none; font-size: 20px; cursor: pointer;
+    color: var(--ink-faint); line-height: 1; padding: 0 4px;
+  }
+  .modal-label {
+    font-family: 'Inconsolata', monospace; font-size: 10px;
+    font-weight: 700; letter-spacing: 1.2px; color: var(--ink);
+    text-transform: uppercase; display: block; margin-bottom: 6px;
+  }
+  .modal-input {
+    width: 100%; padding: 11px 14px; margin-bottom: 16px;
+    border: 1.5px solid var(--line); border-radius: 6px;
+    font-family: 'Inconsolata', monospace; font-size: 14px;
+    color: var(--ink); background: transparent; outline: none;
+    transition: border-color 0.2s;
+  }
+  .modal-input:focus { border-color: var(--ink); }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn-send-email {
+    padding: 13px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.4px; transition: all 0.15s; text-align: center;
+    background: var(--ink); color: #fff; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-send-email:active { transform: scale(0.97); }
+  .btn-whatsapp {
+    padding: 13px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.4px; transition: all 0.15s; text-align: center;
+    background: #25D366; color: #fff; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-whatsapp:active { transform: scale(0.97); }
+  .btn-download-pdf {
+    padding: 13px 20px; border-radius: 8px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.4px; transition: all 0.15s; text-align: center;
+    background: transparent; color: var(--red); border: 1.5px solid var(--red);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-download-pdf:active { transform: scale(0.97); }
+  .modal-divider {
+    border: none; border-top: 1px solid var(--line-light); margin: 4px 0 12px;
+  }
+  .emailjs-note {
+    font-family: 'Inconsolata', monospace; font-size: 11px;
+    color: var(--ink-faint); text-align: center; margin-top: 12px;
+    line-height: 1.5;
+  }
+  .emailjs-note a { color: var(--ink-light); }
+
+  /* ── Payment status badge on toolbar area ── */
+  .status-strip {
+    width: 100%; max-width: 820px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 0 10px; flex-wrap: wrap;
+  }
+  .status-label {
+    font-family: 'Inconsolata', monospace; font-size: 11px;
+    letter-spacing: 1px; color: #6A5F30; text-transform: uppercase;
+  }
+  .status-pill {
+    padding: 5px 14px; border-radius: 999px; border: none; cursor: pointer;
+    font-family: 'Inconsolata', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s;
+    opacity: 0.45;
+  }
+  .status-pill.active { opacity: 1; transform: scale(1.05); }
+  .status-pill.unpaid  { background: #FEF3C7; color: #92400E; border: 1.5px solid #F59E0B; }
+  .status-pill.paid    { background: #D1FAE5; color: #065F46; border: 1.5px solid #10B981; }
+  .status-pill.overdue { background: #FEE2E2; color: #991B1B; border: 1.5px solid #EF4444; }
+
+  /* ── PDF generation loading overlay ── */
+  .pdf-loading {
+    display: none; position: fixed; inset: 0; z-index: 9000;
+    background: rgba(30,28,20,0.7);
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  }
+  .pdf-loading.show { display: flex; }
+  .pdf-spinner {
+    width: 44px; height: 44px; border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pdf-loading-text {
+    font-family: 'Inconsolata', monospace; font-size: 13px;
+    letter-spacing: 1px; color: #fff;
+  }
+
+  /* ── Hide send button & status strip from print ── */
+  @media print {
+    .status-strip, .modal-backdrop, .pdf-loading, .btn-send { display: none !important; }
+  }
 </head>
 <body>
 
+<!-- ══ LOGIN OVERLAY ══ -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo-title">Tax Invoice / Quote</div>
+    <div class="login-sub">Receipt Book · Sign in to continue</div>
+
+    <button class="login-btn login-btn-google" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+
+    <div class="login-divider">OR</div>
+
+    <div id="login-error" class="login-error"></div>
+    <input class="login-input" id="login-email" type="email" placeholder="Email address" autocomplete="email">
+    <input class="login-input" id="login-pass"  type="password" placeholder="Password" autocomplete="current-password">
+    <button class="login-btn login-btn-email" id="login-submit-btn" onclick="signInWithEmail()">Sign in</button>
+
+    <div class="login-switch" id="login-switch-text">
+      No account? <span onclick="toggleSignUpMode()">Create one free</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+
 <!-- Toolbar -->
 <div class="toolbar">
-  <span class="toolbar-title">📋 Receipt Book</span>
+  <span class="toolbar-title">📋 Receipt Book <span class="sync-dot" id="sync-dot"></span></span>
   <div class="mode-toggle">
     <button class="mode-btn active inv-active" id="btn-mode-invoice" onclick="setMode('invoice')">INVOICE</button>
     <button class="mode-btn quote-active"      id="btn-mode-quote"   onclick="setMode('quote')">QUOTE</button>
   </div>
   <div class="toolbar-actions">
+    <div class="user-bar" id="user-bar" style="display:none">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-name"></span>
+      <button class="btn-signout" onclick="signOutUser()">Sign out</button>
+    </div>
     <button class="btn btn-new" onclick="newInvoice()">+ New</button>
     <button class="btn btn-save" onclick="saveInvoice()">💾 Save</button>
-    <button class="btn btn-pdf" onclick="window.print()">🖨 Print / PDF</button>
+    <button class="btn btn-send" onclick="openSendModal()" style="background:#1565C0;color:#fff;">✉ Send</button>
+    <button class="btn btn-pdf" onclick="window.print()">🖨 Print</button>
   </div>
+</div>
+
+<!-- Payment status strip -->
+<div class="status-strip" id="status-strip">
+  <span class="status-label">Payment:</span>
+  <button class="status-pill unpaid  active" id="pill-unpaid"  onclick="setPayStatus('unpaid')">Unpaid</button>
+  <button class="status-pill paid"           id="pill-paid"    onclick="setPayStatus('paid')">✓ Paid</button>
+  <button class="status-pill overdue"        id="pill-overdue" onclick="setPayStatus('overdue')">⚠ Overdue</button>
+</div>
+
+<!-- ══ SEND / SHARE MODAL ══ -->
+<div class="modal-backdrop" id="send-modal">
+  <div class="modal">
+    <div class="modal-title">
+      Send Invoice
+      <button class="modal-close" onclick="closeSendModal()">✕</button>
+    </div>
+
+    <label class="modal-label">Recipient email</label>
+    <input class="modal-input" id="send-email" type="email" placeholder="client@example.com">
+
+    <label class="modal-label">Subject line</label>
+    <input class="modal-input" id="send-subject" type="text" placeholder="Invoice JP000001 from Your Company">
+
+    <label class="modal-label">Message (optional)</label>
+    <input class="modal-input" id="send-message" type="text" placeholder="Please find your invoice attached.">
+
+    <hr class="modal-divider">
+    <div class="modal-actions">
+      <button class="btn-send-email" onclick="sendByEmail()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        Send via Email
+      </button>
+      <button class="btn-whatsapp" onclick="sendByWhatsApp()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.949 0C5.394 0 0 5.394 0 11.949c0 2.112.553 4.088 1.515 5.812L0 24l6.435-1.495a11.89 11.89 0 005.514 1.364h.001C18.505 23.869 24 18.474 24 11.919 24 5.394 18.505 0 11.949 0zm.001 21.812a9.864 9.864 0 01-5.031-1.377l-.361-.214-3.741.981.998-3.648-.235-.374A9.86 9.86 0 012.088 11.95c0-5.445 4.427-9.873 9.862-9.873 5.436 0 9.863 4.428 9.863 9.873 0 5.445-4.427 9.862-9.863 9.862z"/></svg>
+        Share via WhatsApp
+      </button>
+      <button class="btn-download-pdf" onclick="downloadPDF()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </button>
+    </div>
+
+    <div class="emailjs-note">
+      Email uses <a href="https://emailjs.com" target="_blank">EmailJS</a> (free · 200 emails/month).<br>
+      Add your EmailJS keys in the EMAILJS_CONFIG section of the code.
+    </div>
+  </div>
+</div>
+
+<!-- ══ PDF LOADING OVERLAY ══ -->
+<div class="pdf-loading" id="pdf-loading">
+  <div class="pdf-spinner"></div>
+  <div class="pdf-loading-text" id="pdf-loading-text">Generating PDF…</div>
 </div>
 
 <!-- Paper invoice -->
@@ -854,11 +1164,22 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- jsPDF — PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- EmailJS — send email without a server -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- Firebase SDK — loads before app code -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <script>
 // ── State ──────────────────────────────────────────────
+let currentUser      = null;
 let currentInvoiceId = null;
-let docType = 'invoice'; // 'invoice' | 'quote'
-const GST_RATE = 0.1;
+let docType          = 'invoice';
+let isSignUpMode     = false;
+const GST_RATE       = 0.1;
 
 // ── Mode switching ─────────────────────────────────────
 function setMode(mode, silent) {
@@ -880,16 +1201,38 @@ function updateConvertBanner() {
   banner.classList.toggle('visible', docType === 'quote');
 }
 
-// ── Init ───────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// ── Auth state listener — app entry point ──────────────
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('login-overlay').classList.add('hidden');
+    const initials = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent   = user.displayName || user.email;
+    document.getElementById('user-bar').style.display  = 'flex';
+    appInit();
+  } else {
+    currentUser = null;
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('user-bar').style.display  = 'none';
+  }
+});
+
+function appInit() {
   setTodayDate();
   setMode('invoice', true);
   generateDocNumber();
-  addRow(); addRow(); addRow(); addRow(); addRow();
-  addRow(); addRow(); addRow();
+  if (!document.getElementById('items-body').children.length) {
+    for (let i = 0; i < 8; i++) addRow();
+  }
   initSignature();
   loadCompanyProfile();
   loadSavedList();
+}
+
+// Only run non-auth DOM setup on load
+document.addEventListener('DOMContentLoaded', () => {
+  // Items table and signature init before login completes
 });
 
 function setTodayDate() {
@@ -898,15 +1241,14 @@ function setTodayDate() {
 }
 
 function generateDocNumber() {
-  const saved = JSON.parse(localStorage.getItem('invoices') || '[]');
+  // Uses cached list length for now; Firestore save will confirm
   const prefix = docType === 'quote' ? 'QT' : 'JP';
-  const typeEntries = saved.filter(i => (i.docType || 'invoice') === docType);
-  const next = String(typeEntries.length + 1).padStart(6, '0');
   document.getElementById('inv-prefix').textContent = prefix;
-  document.getElementById('inv-num').textContent = next;
-  return next;
+  // Number will be set properly on save; show placeholder
+  if (!currentInvoiceId) {
+    document.getElementById('inv-num').textContent = '------';
+  }
 }
-// Keep old name working
 function generateInvoiceNumber() { return generateDocNumber(); }
 
 // ── Logo ───────────────────────────────────────────────
@@ -919,29 +1261,59 @@ function loadLogo(input) {
     img.src = e.target.result;
     img.style.display = 'block';
     document.getElementById('logo-placeholder').style.display = 'none';
-    localStorage.setItem('logo', e.target.result);
+    // Store in localStorage (logo is too big for Firestore)
+    localStorage.setItem('logo_' + (currentUser?.uid || 'local'), e.target.result);
+    saveProfileToFirestore();
   };
   reader.readAsDataURL(file);
 }
 
 function loadCompanyProfile() {
-  const logo = localStorage.getItem('logo');
+  // Logo from localStorage (per user)
+  const logo = localStorage.getItem('logo_' + (currentUser?.uid || 'local'));
   if (logo) {
     document.getElementById('logo-img').src = logo;
     document.getElementById('logo-img').style.display = 'block';
     document.getElementById('logo-placeholder').style.display = 'none';
   }
-  const fields = ['co-name','co-abn-top','co-addr','co-phone'];
-  fields.forEach(f => {
-    const val = localStorage.getItem(f);
-    if (val) document.getElementById(f).value = val;
+  if (!currentUser) return;
+  // Load profile fields from Firestore
+  db.collection('users').doc(currentUser.uid).collection('profile').doc('company')
+    .get().then(doc => {
+      if (doc.exists) {
+        const d = doc.data();
+        ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
+          if (d[f]) document.getElementById(f).value = d[f];
+        });
+      }
+    }).catch(() => {
+      // Fallback to localStorage
+      ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
+        const val = localStorage.getItem(f);
+        if (val) document.getElementById(f).value = val;
+      });
+    });
+}
+
+function saveProfileToFirestore() {
+  if (!currentUser) return;
+  const data = {};
+  ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
+    data[f] = document.getElementById(f)?.value || '';
   });
+  db.collection('users').doc(currentUser.uid).collection('profile').doc('company')
+    .set(data, { merge: true });
 }
 
 // Auto-save company details on blur
 ['co-name','co-abn-top','co-addr','co-phone'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('blur', () => localStorage.setItem(id, el.value));
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('blur', () => {
+      localStorage.setItem(id, el.value);
+      saveProfileToFirestore();
+    });
+  });
 });
 
 // ── Line items ─────────────────────────────────────────
@@ -1063,7 +1435,12 @@ function clearSig() {
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// ── Save / Load invoices ───────────────────────────────
+// ── Save / Load invoices → Firestore ──────────────────
+function setSyncing(on) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot ' + (on ? 'syncing' : 'synced');
+}
+
 function collectData() {
   const rows = [];
   document.querySelectorAll('#items-body tr').forEach(row => {
@@ -1073,100 +1450,125 @@ function collectData() {
     const gst  = row.querySelector('.gst-input-cell').value;
     if (qty || desc || each) rows.push({ qty, desc, each, gst });
   });
-
   return {
-    id: currentInvoiceId || Date.now(),
-    docType: docType,
-    number: document.getElementById('inv-num').textContent,
-    date:   document.getElementById('inv-date').value,
-    order:  document.getElementById('inv-order').value,
-    from:   document.getElementById('from-addr').value,
-    to:     document.getElementById('to-addr').value,
-    abnS:   document.getElementById('abn-supplier').value,
-    abnR:   document.getElementById('abn-recipient').value,
-    gstNo:  document.getElementById('gst-no').value,
+    docType,
+    date:       document.getElementById('inv-date').value,
+    order:      document.getElementById('inv-order').value,
+    from:       document.getElementById('from-addr').value,
+    to:         document.getElementById('to-addr').value,
+    abnS:       document.getElementById('abn-supplier').value,
+    abnR:       document.getElementById('abn-recipient').value,
+    gstNo:      document.getElementById('gst-no').value,
     rows,
     subtotal:   document.getElementById('subtotal').textContent,
     gstTotal:   document.getElementById('gst-total').textContent,
     grandTotal: document.getElementById('grand-total').textContent,
-    sig: document.getElementById('sig-canvas').toDataURL(),
-    savedAt: new Date().toLocaleString()
+    sig:        document.getElementById('sig-canvas').toDataURL(),
+    savedAt:    new Date().toISOString(),
+    convertedToInvoice: false
   };
 }
 
-function saveInvoice() {
+async function saveInvoice() {
+  if (!currentUser) { showToast('Please sign in first'); return; }
+  setSyncing(true);
   const data = collectData();
-  let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-  const idx = invoices.findIndex(i => i.id === data.id);
-  if (idx >= 0) invoices[idx] = data;
-  else invoices.unshift(data);
-  localStorage.setItem('invoices', JSON.stringify(invoices));
-  currentInvoiceId = data.id;
-  const label = docType === 'quote' ? 'Quote' : 'Invoice';
-  showToast('✓ ' + label + ' ' + (docType === 'quote' ? 'QT' : 'JP') + data.number + ' saved');
-  updateConvertBanner();
-  loadSavedList();
-}
+  const col = db.collection('users').doc(currentUser.uid).collection('invoices');
 
-function loadInvoice(id) {
-  const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-  const data = invoices.find(i => i.id === id);
-  if (!data) return;
-  currentInvoiceId = data.id;
-  // Restore mode first so UI updates correctly
-  docType = data.docType || 'invoice';
-  setMode(docType, true);
-  document.getElementById('inv-num').textContent    = data.number;
-  document.getElementById('inv-prefix').textContent = docType === 'quote' ? 'QT' : 'JP';
-  document.getElementById('inv-date').value         = data.date;
-  document.getElementById('inv-order').value        = data.order || '';
-  document.getElementById('from-addr').value        = data.from || '';
-  document.getElementById('to-addr').value          = data.to || '';
-  document.getElementById('abn-supplier').value     = data.abnS || '';
-  document.getElementById('abn-recipient').value    = data.abnR || '';
-  document.getElementById('gst-no').value           = data.gstNo || '';
-  document.getElementById('subtotal').textContent   = data.subtotal;
-  document.getElementById('gst-total').textContent  = data.gstTotal;
-  document.getElementById('grand-total').textContent = data.grandTotal;
-
-  // Restore rows
-  const tbody = document.getElementById('items-body');
-  tbody.innerHTML = '';
-  data.rows.forEach(r => addRow(r.qty, r.desc, r.each, r.gst));
-  while (tbody.children.length < 8) addRow();
-
-  // Restore signature
-  if (data.sig) {
-    const canvas = document.getElementById('sig-canvas');
-    const img = new Image();
-    img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0);
-    img.src = data.sig;
+  try {
+    if (currentInvoiceId) {
+      // Update existing
+      await col.doc(currentInvoiceId).update({ ...data, savedAt: new Date().toISOString() });
+    } else {
+      // New doc — get count first for number
+      const snap = await col.where('docType','==', docType).get();
+      const num  = String(snap.size + 1).padStart(6, '0');
+      const prefix = docType === 'quote' ? 'QT' : 'JP';
+      data.number = num;
+      data.prefix = prefix;
+      document.getElementById('inv-num').textContent = num;
+      document.getElementById('inv-prefix').textContent = prefix;
+      const ref = await col.add(data);
+      currentInvoiceId = ref.id;
+    }
+    setSyncing(false);
+    const label = docType === 'quote' ? 'Quote' : 'Invoice';
+    const num   = document.getElementById('inv-num').textContent;
+    const pre   = document.getElementById('inv-prefix').textContent;
+    showToast('✓ ' + label + ' ' + pre + num + ' saved to cloud');
+    updateConvertBanner();
+    loadSavedList();
+  } catch (err) {
+    setSyncing(false);
+    showToast('Save failed: ' + err.message);
   }
-
-  const loadLabel = docType === 'quote' ? 'Quote' : 'Invoice';
-  showToast(loadLabel + ' ' + (docType === 'quote' ? 'QT' : 'JP') + data.number + ' loaded');
-  updateConvertBanner();
-  toggleDrawer(false);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function deleteInvoice(id, numStr) {
-  if (!confirm('Delete invoice ' + numStr + '?')) return;
-  let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-  invoices = invoices.filter(i => i.id !== id);
-  localStorage.setItem('invoices', JSON.stringify(invoices));
+async function loadInvoice(id) {
+  if (!currentUser) return;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid)
+      .collection('invoices').doc(id).get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    currentInvoiceId = id;
+
+    docType = data.docType || 'invoice';
+    setMode(docType, true);
+    document.getElementById('inv-num').textContent    = data.number || '------';
+    document.getElementById('inv-prefix').textContent = data.prefix || (docType === 'quote' ? 'QT' : 'JP');
+    document.getElementById('inv-date').value         = data.date   || '';
+    document.getElementById('inv-order').value        = data.order  || '';
+    document.getElementById('from-addr').value        = data.from   || '';
+    document.getElementById('to-addr').value          = data.to     || '';
+    document.getElementById('abn-supplier').value     = data.abnS   || '';
+    document.getElementById('abn-recipient').value    = data.abnR   || '';
+    document.getElementById('gst-no').value           = data.gstNo  || '';
+    document.getElementById('subtotal').textContent   = data.subtotal   || '0.00';
+    document.getElementById('gst-total').textContent  = data.gstTotal   || '0.00';
+    document.getElementById('grand-total').textContent = data.grandTotal || '0.00';
+
+    const tbody = document.getElementById('items-body');
+    tbody.innerHTML = '';
+    (data.rows || []).forEach(r => addRow(r.qty, r.desc, r.each, r.gst));
+    while (tbody.children.length < 8) addRow();
+
+    if (data.sig) {
+      const canvas = document.getElementById('sig-canvas');
+      const img = new Image();
+      img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0);
+      img.src = data.sig;
+    }
+
+    const label = docType === 'quote' ? 'Quote' : 'Invoice';
+    showToast(label + ' ' + (data.prefix||'JP') + data.number + ' loaded');
+    updateConvertBanner();
+    toggleDrawer(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    showToast('Load failed: ' + err.message);
+  }
+}
+
+async function deleteInvoice(id, label) {
+  if (!confirm('Delete ' + label + '?')) return;
+  await db.collection('users').doc(currentUser.uid)
+    .collection('invoices').doc(id).delete();
+  if (currentInvoiceId === id) {
+    currentInvoiceId = null;
+    newInvoice(true);
+  }
   loadSavedList();
-  showToast('Invoice deleted');
+  showToast('Deleted');
 }
 
-function newInvoice() {
-  if (!confirm('Start a new document? Unsaved changes will be lost.')) return;
+function newInvoice(silent) {
+  if (!silent && !confirm('Start a new document? Unsaved changes will be lost.')) return;
   currentInvoiceId = null;
-  document.getElementById('inv-order').value = '';
-  document.getElementById('from-addr').value = '';
-  document.getElementById('to-addr').value = '';
-  document.getElementById('abn-recipient').value = '';
-  document.getElementById('gst-no').value = '';
+  ['inv-order','from-addr','to-addr','abn-recipient','gst-no'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   setTodayDate();
   document.getElementById('items-body').innerHTML = '';
   for (let i = 0; i < 8; i++) addRow();
@@ -1175,81 +1577,529 @@ function newInvoice() {
   generateDocNumber();
   updateConvertBanner();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('New ' + (docType === 'quote' ? 'quote' : 'invoice') + ' started');
+  if (!silent) showToast('New ' + (docType === 'quote' ? 'quote' : 'invoice') + ' started');
 }
 
-function loadSavedList() {
-  const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+async function loadSavedList() {
+  if (!currentUser) return;
   const el = document.getElementById('saved-list');
-  if (!invoices.length) {
-    el.innerHTML = '<div class="empty-saved">No saved documents yet.</div>';
-    return;
+  el.innerHTML = '<div class="empty-saved">Loading...</div>';
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid)
+      .collection('invoices').orderBy('savedAt', 'desc').get();
+    if (snap.empty) {
+      el.innerHTML = '<div class="empty-saved">No saved documents yet.</div>';
+      return;
+    }
+    el.innerHTML = snap.docs.map(doc => {
+      const inv = doc.data();
+      const isQuote     = (inv.docType || 'invoice') === 'quote';
+      const isConverted = inv.convertedToInvoice;
+      const prefix      = inv.prefix || (isQuote ? 'QT' : 'JP');
+      const badgeClass  = isConverted ? 'badge-converted' : (isQuote ? 'badge-quote' : 'badge-invoice');
+      const badgeText   = isConverted ? 'CONVERTED' : (isQuote ? 'QUOTE' : 'INVOICE');
+      const numColor    = isQuote ? 'color:#C47A00' : 'color:var(--red)';
+      const convertBtn  = isQuote && !isConverted
+        ? `<button class="saved-load" style="background:#1A5C3A" onclick="convertSavedToInvoice('${doc.id}')">⚡ Convert</button>` : '';
+      const savedDate   = inv.savedAt ? new Date(inv.savedAt).toLocaleDateString() : '';
+      return `
+      <div class="saved-item">
+        <div>
+          <div style="font-weight:700;${numColor}">${prefix} ${inv.number||'---'} <span class="status-badge ${badgeClass}">${badgeText}</span></div>
+          <div class="saved-item-meta">${inv.date||''} · To: ${(inv.to||'').split('\n')[0]||'—'}</div>
+          <div class="saved-item-meta">Total: $${inv.grandTotal||'0.00'} · Saved: ${savedDate}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          ${convertBtn}
+          <button class="saved-load" onclick="loadInvoice('${doc.id}')">Load</button>
+          <button class="saved-delete" onclick="deleteInvoice('${doc.id}','${prefix} ${inv.number||''}')">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = '<div class="empty-saved">Error loading: ' + err.message + '</div>';
   }
-  el.innerHTML = invoices.map(inv => {
-    const isQuote = (inv.docType || 'invoice') === 'quote';
-    const isConverted = inv.convertedToInvoice;
-    const prefix = isQuote ? 'QT' : 'JP';
-    const badgeClass = isConverted ? 'badge-converted' : (isQuote ? 'badge-quote' : 'badge-invoice');
-    const badgeText  = isConverted ? 'CONVERTED' : (isQuote ? 'QUOTE' : 'INVOICE');
-    const numColor = isQuote ? 'color:#C47A00' : 'color:var(--red)';
-    const convertBtn = isQuote && !isConverted
-      ? `<button class="saved-load" style="background:#1A5C3A" onclick="convertSavedToInvoice(${inv.id})">⚡ Convert</button>`
-      : '';
-    return `
-    <div class="saved-item">
-      <div>
-        <div style="font-weight:700;${numColor}">${prefix} ${inv.number} <span class="status-badge ${badgeClass}">${badgeText}</span></div>
-        <div class="saved-item-meta">${inv.date} · To: ${(inv.to||'').split('\n')[0]||'—'}</div>
-        <div class="saved-item-meta">Total: $${inv.grandTotal} · Saved: ${inv.savedAt}</div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        ${convertBtn}
-        <button class="saved-load" onclick="loadInvoice(${inv.id})">Load</button>
-        <button class="saved-delete" onclick="deleteInvoice(${inv.id},'${inv.number}')">✕</button>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 // ── Quote → Invoice conversion ─────────────────────────
-function convertToInvoice() {
+async function convertToInvoice() {
   if (docType !== 'quote') return;
-  if (!confirm('Convert this Quote to a Tax Invoice?\n\nA new invoice number will be assigned and the document will become a legally valid Tax Invoice.')) return;
+  if (!confirm('Convert this Quote to a Tax Invoice?\n\nA new invoice number will be assigned and it becomes a legally valid Tax Invoice.')) return;
 
-  // Mark old quote as converted if it was saved
-  if (currentInvoiceId) {
-    let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
-    const idx = invoices.findIndex(i => i.id === currentInvoiceId);
-    if (idx >= 0) {
-      invoices[idx].convertedToInvoice = true;
-      invoices[idx].convertedAt = new Date().toLocaleString();
-      localStorage.setItem('invoices', JSON.stringify(invoices));
-    }
+  // Mark original quote as converted
+  if (currentInvoiceId && currentUser) {
+    await db.collection('users').doc(currentUser.uid)
+      .collection('invoices').doc(currentInvoiceId)
+      .update({ convertedToInvoice: true, convertedAt: new Date().toISOString() });
   }
 
-  // Switch to invoice mode with a fresh invoice number
-  const oldQuoteNum = document.getElementById('inv-num').textContent;
-  currentInvoiceId = null; // New doc
+  const oldNum = document.getElementById('inv-num').textContent;
+  currentInvoiceId = null;
   docType = 'invoice';
   setMode('invoice', true);
-  generateDocNumber();
   setTodayDate();
-
-  // Keep all line items, addresses etc — just change the type
-  showToast('✓ Quote QT' + oldQuoteNum + ' → Invoice JP' + document.getElementById('inv-num').textContent);
+  showToast('Quote QT' + oldNum + ' → converting to Invoice…');
   updateConvertBanner();
+  await saveInvoice(); // Assigns new JP number from Firestore count
   loadSavedList();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Convert directly from saved list without loading
-function convertSavedToInvoice(id) {
-  if (!confirm('Convert this saved Quote to a Tax Invoice? It will be loaded and converted.')) return;
-  loadInvoice(id);
-  // Short delay to let loadInvoice finish, then convert
-  setTimeout(() => {
-    if (docType === 'quote') convertToInvoice();
-  }, 200);
+async function convertSavedToInvoice(id) {
+  if (!confirm('Load this Quote and convert it to a Tax Invoice?')) return;
+  await loadInvoice(id);
+  setTimeout(() => { if (docType === 'quote') convertToInvoice(); }, 300);
+}
+
+// ── Authentication ─────────────────────────────────────
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => showLoginError(err.message));
+}
+
+function toggleSignUpMode() {
+  isSignUpMode = !isSignUpMode;
+  document.getElementById('login-submit-btn').textContent = isSignUpMode ? 'Create account' : 'Sign in';
+  document.getElementById('login-submit-btn').onclick     = isSignUpMode ? createAccount : signInWithEmail;
+  document.getElementById('login-switch-text').innerHTML  = isSignUpMode
+    ? 'Already have an account? <span onclick="toggleSignUpMode()">Sign in</span>'
+    : 'No account? <span onclick="toggleSignUpMode()">Create one free</span>';
+  document.getElementById('login-error').textContent = '';
+}
+
+function signInWithEmail() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if (!email || !pass) { showLoginError('Please enter email and password'); return; }
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(err => showLoginError(err.message));
+}
+
+function createAccount() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if (!email || !pass) { showLoginError('Please enter email and password'); return; }
+  if (pass.length < 6) { showLoginError('Password must be at least 6 characters'); return; }
+  auth.createUserWithEmailAndPassword(email, pass)
+    .catch(err => showLoginError(err.message));
+}
+
+function signOutUser() {
+  if (!confirm('Sign out?')) return;
+  auth.signOut().then(() => {
+    currentUser = null;
+    currentInvoiceId = null;
+    document.getElementById('items-body').innerHTML = '';
+    document.getElementById('saved-list').innerHTML = '';
+  });
+}
+
+function showLoginError(msg) {
+  document.getElementById('login-error').textContent = msg;
+}
+
+// ── Payment status ─────────────────────────────────────
+let payStatus = 'unpaid';
+function setPayStatus(status) {
+  payStatus = status;
+  ['unpaid','paid','overdue'].forEach(s => {
+    document.getElementById('pill-' + s).classList.toggle('active', s === status);
+  });
+  // Auto-save status if doc is already saved
+  if (currentInvoiceId && currentUser) {
+    db.collection('users').doc(currentUser.uid)
+      .collection('invoices').doc(currentInvoiceId)
+      .update({ payStatus: status }).catch(() => {});
+  }
+  showToast('Status → ' + status.charAt(0).toUpperCase() + status.slice(1));
+}
+
+// ── Send / Share modal ─────────────────────────────────
+function openSendModal() {
+  // Pre-fill subject from current invoice data
+  const prefix = document.getElementById('inv-prefix').textContent;
+  const num    = document.getElementById('inv-num').textContent;
+  const co     = document.getElementById('co-name').value || 'Us';
+  const type   = docType === 'quote' ? 'Quote' : 'Invoice';
+  document.getElementById('send-subject').value =
+    `${type} ${prefix}${num} from ${co}`;
+  document.getElementById('send-message').value =
+    `Please find your ${type.toLowerCase()} attached. Thank you for your business.`;
+  // Pre-fill recipient from "To" field first line
+  const toField = (document.getElementById('to-addr').value || '').split('\n')[0];
+  document.getElementById('send-email').value = '';
+  document.getElementById('send-modal').classList.add('open');
+}
+
+function closeSendModal() {
+  document.getElementById('send-modal').classList.remove('open');
+}
+
+// Close modal on backdrop click
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('send-modal')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('send-modal')) closeSendModal();
+  });
+});
+
+// ── PDF generation (jsPDF) ────────────────────────────
+async function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const W = 210, margin = 14;
+  let y = margin;
+
+  const inkR = 45, inkG = 45, inkB = 122;   // --ink
+  const lineR = 200, lineG = 200, lineB = 220;
+  const redR  = 192, redG  = 57,  redB  = 43;
+
+  function inkColor()  { doc.setTextColor(inkR, inkG, inkB); }
+  function grayColor() { doc.setTextColor(100, 100, 130); }
+  function redColor()  { doc.setTextColor(redR, redG, redB); }
+  function lineColor() { doc.setDrawColor(lineR, lineG, lineB); }
+  function inkLine()   { doc.setDrawColor(inkR, inkG, inkB); }
+
+  // ─ Logo ─
+  const logoSrc = document.getElementById('logo-img').src;
+  const hasLogo = document.getElementById('logo-img').style.display !== 'none' && logoSrc;
+  if (hasLogo) {
+    try { doc.addImage(logoSrc, 'PNG', margin, y, 30, 18, undefined, 'FAST'); } catch(e) {}
+  }
+
+  // ─ Company details (right) ─
+  const coName  = document.getElementById('co-name').value    || '';
+  const coAbn   = document.getElementById('co-abn-top').value || '';
+  const coAddr  = document.getElementById('co-addr').value    || '';
+  const coPhone = document.getElementById('co-phone').value   || '';
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); inkColor();
+  doc.text(coName,  W - margin, y + 4,  { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); grayColor();
+  if (coAbn)   { y += 5; doc.text(coAbn,   W - margin, y + 4,  { align: 'right' }); }
+  if (coAddr)  { y += 4; doc.text(coAddr,  W - margin, y + 4,  { align: 'right' }); }
+  if (coPhone) { y += 4; doc.text(coPhone, W - margin, y + 4,  { align: 'right' }); }
+  y = margin + 22;
+
+  // ─ Title banner ─
+  const isQuote = docType === 'quote';
+  const titleText = isQuote ? 'QUOTE / ESTIMATE' : 'TAX INVOICE / STATEMENT';
+  if (isQuote) { doc.setDrawColor(26, 92, 58); doc.setTextColor(26, 92, 58); }
+  else { inkLine(); inkColor(); }
+  doc.setLineWidth(0.4);
+  doc.rect(margin, y, W - margin * 2, 10);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+  doc.text(titleText, W / 2, y + 6.8, { align: 'center' });
+  y += 14;
+
+  // ─ Meta row: Date | Order | Invoice No ─
+  inkLine(); doc.setLineWidth(0.3);
+  const cellW = (W - margin * 2) / 3;
+  doc.rect(margin,          y, cellW,     12);
+  doc.rect(margin + cellW,  y, cellW,     12);
+  doc.rect(margin + cellW*2,y, cellW,     12);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); grayColor();
+  doc.text('DATE',         margin + 2,          y + 3.5);
+  doc.text('ORDER NUMBER', margin + cellW + 2,  y + 3.5);
+  doc.text('INVOICE NUMBER', margin + cellW*2 + 2, y + 3.5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); inkColor();
+  doc.text(document.getElementById('inv-date').value  || '', margin + 2,          y + 9);
+  doc.text(document.getElementById('inv-order').value || '', margin + cellW + 2,  y + 9);
+  const prefix = document.getElementById('inv-prefix').textContent;
+  const num    = document.getElementById('inv-num').textContent;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+  if (isQuote) doc.setTextColor(196, 122, 0); else redColor();
+  doc.text(prefix + ' ' + num, margin + cellW*2 + 2, y + 9);
+  y += 16;
+
+  // ─ FROM / TO ─
+  inkLine(); doc.setLineWidth(0.3);
+  const halfW = (W - margin * 2) / 2;
+  doc.rect(margin,        y, halfW, 22);
+  doc.rect(margin + halfW, y, halfW, 22);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); grayColor();
+  doc.text('FROM', margin + 2,        y + 3.5);
+  doc.text('TO',   margin + halfW + 2, y + 3.5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); inkColor();
+  const fromLines = (document.getElementById('from-addr').value || '').split('\n').slice(0,3);
+  const toLines   = (document.getElementById('to-addr').value   || '').split('\n').slice(0,3);
+  fromLines.forEach((l, i) => doc.text(l, margin + 2,         y + 7 + i * 4));
+  toLines.forEach((l,   i) => doc.text(l, margin + halfW + 2, y + 7 + i * 4));
+  y += 26;
+
+  // ─ ABN row ─
+  doc.rect(margin, y, halfW, 7);
+  doc.rect(margin + halfW, y, halfW, 7);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6); grayColor();
+  doc.text('ABN (Supplier): ', margin + 2, y + 4.5);
+  doc.text('ABN (Recipient): ', margin + halfW + 2, y + 4.5);
+  doc.setFont('helvetica', 'normal'); inkColor();
+  doc.text(document.getElementById('abn-supplier').value  || '', margin + 26,        y + 4.5);
+  doc.text(document.getElementById('abn-recipient').value || '', margin + halfW + 28, y + 4.5);
+  y += 11;
+
+  // ─ Items table header ─
+  const cols = { qty: 14, desc: 82, each: 24, gst: 20, total: 26 };
+  const colX = {
+    qty:   margin,
+    desc:  margin + cols.qty,
+    each:  margin + cols.qty + cols.desc,
+    gst:   margin + cols.qty + cols.desc + cols.each,
+    total: margin + cols.qty + cols.desc + cols.each + cols.gst
+  };
+  const tableW = W - margin * 2;
+
+  inkLine(); doc.setLineWidth(0.3);
+  doc.setFillColor(245, 240, 192);
+  doc.rect(margin, y, tableW, 7, 'FD');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); inkColor();
+  doc.text('QTY',         colX.qty   + cols.qty/2,   y + 4.5, { align: 'center' });
+  doc.text('DESCRIPTION', colX.desc  + 2,             y + 4.5);
+  doc.text('EACH $',      colX.each  + cols.each/2,   y + 4.5, { align: 'center' });
+  doc.text('GST',         colX.gst   + cols.gst/2,    y + 4.5, { align: 'center' });
+  doc.text('TOTAL $',     colX.total + cols.total/2,  y + 4.5, { align: 'center' });
+  y += 7;
+
+  // ─ Items rows ─
+  const rows = [];
+  document.querySelectorAll('#items-body tr').forEach(row => {
+    const qty  = row.querySelector('.qty-input').value;
+    const desc = row.querySelector('.desc-input').value;
+    const each = row.querySelector('.each-input').value;
+    const gst  = row.querySelector('.gst-input-cell').value;
+    const tot  = row.querySelector('.total-input').value;
+    if (qty || desc || each) rows.push({ qty, desc, each, gst, tot });
+  });
+
+  const rowH = 7;
+  rows.forEach((r, i) => {
+    if (i % 2 === 1) {
+      doc.setFillColor(248, 248, 255);
+      doc.rect(margin, y, tableW, rowH, 'F');
+    }
+    lineColor(); doc.setLineWidth(0.2);
+    doc.line(margin, y + rowH, margin + tableW, y + rowH);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); inkColor();
+    doc.text(r.qty  || '', colX.qty   + cols.qty/2,   y + 4.8, { align: 'center' });
+    doc.text(r.desc || '', colX.desc  + 2,             y + 4.8);
+    doc.text(r.each || '', colX.each  + cols.each - 2, y + 4.8, { align: 'right' });
+    grayColor();
+    doc.text(r.gst  || '', colX.gst   + cols.gst  - 2, y + 4.8, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); inkColor();
+    doc.text(r.tot  || '', colX.total + cols.total - 2, y + 4.8, { align: 'right' });
+    y += rowH;
+  });
+
+  // ─ Column dividers ─
+  inkLine(); doc.setLineWidth(0.3);
+  const tableTop = y - rows.length * rowH - 7;
+  [colX.desc, colX.each, colX.gst, colX.total].forEach(x => {
+    doc.line(x, tableTop, x, y);
+  });
+  doc.rect(margin, tableTop, tableW, y - tableTop);
+  y += 4;
+
+  // ─ Totals (right-aligned block) ─
+  const totW = 80, totX = W - margin - totW;
+  const totRows = [
+    ['Sub Total',          document.getElementById('subtotal').textContent],
+    ['GST (10%)',          document.getElementById('gst-total').textContent],
+    ['TOTAL INC. GST',     document.getElementById('grand-total').textContent],
+  ];
+  totRows.forEach((row, i) => {
+    const rowY = y + i * 8;
+    const isGrand = i === 2;
+    if (isGrand) {
+      doc.setFillColor(245, 240, 192);
+      doc.rect(totX, rowY, totW, 9, 'FD');
+    }
+    inkLine(); doc.setLineWidth(0.25);
+    doc.rect(totX, rowY, totW, isGrand ? 9 : 7);
+    doc.line(totX + 52, rowY, totX + 52, rowY + (isGrand ? 9 : 7));
+    doc.setFont('helvetica', isGrand ? 'bold' : 'normal');
+    doc.setFontSize(isGrand ? 8 : 7.5);
+    if (isGrand) { if (isQuote) doc.setTextColor(196,122,0); else redColor(); }
+    else inkColor();
+    doc.text(row[0], totX + 2,  rowY + (isGrand ? 6 : 5));
+    doc.text('$' + row[1], totX + totW - 2, rowY + (isGrand ? 6 : 5), { align: 'right' });
+  });
+  y += 30;
+
+  // ─ Signature ─
+  const sigCanvas = document.getElementById('sig-canvas');
+  const sigBlank  = !sigCanvas.getContext('2d')
+    .getImageData(0,0,sigCanvas.width,sigCanvas.height).data.some(v => v !== 0);
+  inkLine(); doc.setLineWidth(0.3);
+  doc.rect(margin, y, 80, 22);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); grayColor();
+  doc.text('SIGNED:', margin + 2, y + 4);
+  if (!sigBlank) {
+    try { doc.addImage(sigCanvas.toDataURL(), 'PNG', margin + 2, y + 5, 76, 15, undefined, 'FAST'); } catch(e) {}
+  }
+
+  // ─ Footer note ─
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); grayColor();
+  doc.text('* Indicates taxable supply', margin, y + 27);
+
+  // ─ Pay status watermark ─
+  if (payStatus === 'paid') {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(52);
+    doc.setTextColor(16, 185, 129); doc.setGState(new doc.GState({ opacity: 0.12 }));
+    doc.text('PAID', W/2, 160, { align:'center', angle: 30 });
+    doc.setGState(new doc.GState({ opacity: 1 }));
+  } else if (payStatus === 'overdue') {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(52);
+    doc.setTextColor(239, 68, 68); doc.setGState(new doc.GState({ opacity: 0.12 }));
+    doc.text('OVERDUE', W/2, 160, { align:'center', angle: 30 });
+    doc.setGState(new doc.GState({ opacity: 1 }));
+  }
+
+  return doc;
+}
+
+async function downloadPDF() {
+  showPDFLoading('Generating PDF…');
+  try {
+    const doc = await buildPDF();
+    const prefix = document.getElementById('inv-prefix').textContent;
+    const num    = document.getElementById('inv-num').textContent;
+    doc.save(`${prefix}${num}_invoice.pdf`);
+    closeSendModal();
+    showToast('PDF downloaded ✓');
+  } catch(e) {
+    showToast('PDF error: ' + e.message);
+  } finally {
+    hidePDFLoading();
+  }
+}
+
+function showPDFLoading(msg) {
+  document.getElementById('pdf-loading-text').textContent = msg || 'Working…';
+  document.getElementById('pdf-loading').classList.add('show');
+}
+function hidePDFLoading() {
+  document.getElementById('pdf-loading').classList.remove('show');
+}
+
+// ── Email (EmailJS) ───────────────────────────────────
+// ════════════════════════════════════════════════════
+//  Set up EmailJS free at https://emailjs.com
+//  1. Create account → Add Email Service (Gmail etc)
+//  2. Create Email Template — use variables:
+//     {{to_email}}, {{subject}}, {{message}},
+//     {{from_name}}, {{invoice_number}}, {{pdf_base64}}
+//  3. Paste your IDs below
+// ════════════════════════════════════════════════════
+const EMAILJS_CONFIG = {
+  publicKey:   'PASTE_YOUR_PUBLIC_KEY',
+  serviceId:   'PASTE_YOUR_SERVICE_ID',
+  templateId:  'PASTE_YOUR_TEMPLATE_ID'
+};
+
+async function sendByEmail() {
+  const to      = document.getElementById('send-email').value.trim();
+  const subject = document.getElementById('send-subject').value.trim();
+  const message = document.getElementById('send-message').value.trim();
+  if (!to) { showToast('Enter a recipient email'); return; }
+
+  showPDFLoading('Preparing email…');
+  try {
+    // Generate PDF as base64
+    const doc      = await buildPDF();
+    const pdfB64   = doc.output('datauristring');
+    const coName   = document.getElementById('co-name').value || 'Invoice';
+    const prefix   = document.getElementById('inv-prefix').textContent;
+    const num      = document.getElementById('inv-num').textContent;
+
+    if (EMAILJS_CONFIG.publicKey === 'PASTE_YOUR_PUBLIC_KEY') {
+      // Fallback: open mail client
+      hidePDFLoading();
+      const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message + '\n\n(Download your PDF from the link the sender will attach separately)')}`;
+      window.location.href = mailto;
+      showToast('Opening mail app — attach the downloaded PDF');
+      closeSendModal();
+      return;
+    }
+
+    emailjs.init(EMAILJS_CONFIG.publicKey);
+    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+      to_email:       to,
+      subject:        subject,
+      message:        message,
+      from_name:      coName,
+      invoice_number: prefix + num,
+      pdf_base64:     pdfB64
+    });
+
+    // Log in Firestore
+    if (currentUser && currentInvoiceId) {
+      await db.collection('users').doc(currentUser.uid)
+        .collection('invoices').doc(currentInvoiceId)
+        .update({
+          lastSentTo:   to,
+          lastSentAt:   new Date().toISOString(),
+          sentCount:    firebase.firestore.FieldValue.increment(1)
+        });
+    }
+
+    closeSendModal();
+    showToast('Email sent to ' + to + ' ✓');
+    loadSavedList();
+  } catch(e) {
+    showToast('Email error: ' + (e.text || e.message || 'Unknown error'));
+  } finally {
+    hidePDFLoading();
+  }
+}
+
+// ── WhatsApp share ────────────────────────────────────
+function sendByWhatsApp() {
+  const prefix    = document.getElementById('inv-prefix').textContent;
+  const num       = document.getElementById('inv-num').textContent;
+  const coName    = document.getElementById('co-name').value   || 'Us';
+  const toName    = (document.getElementById('to-addr').value  || '').split('\n')[0] || 'there';
+  const grand     = document.getElementById('grand-total').textContent;
+  const date      = document.getElementById('inv-date').value  || '';
+  const type      = docType === 'quote' ? 'Quote' : 'Invoice';
+
+  const msg =
+`Hi ${toName},
+
+Please find your ${type} details below:
+
+${type} No: ${prefix} ${num}
+Date: ${date}
+From: ${coName}
+Total: $${grand} (inc. GST)
+
+Items:
+` + (() => {
+      const lines = [];
+      document.querySelectorAll('#items-body tr').forEach(row => {
+        const qty  = row.querySelector('.qty-input').value;
+        const desc = row.querySelector('.desc-input').value;
+        const tot  = row.querySelector('.total-input').value;
+        if (desc || qty) lines.push(`• ${qty ? qty + 'x ' : ''}${desc} — $${tot}`);
+      });
+      return lines.join('\n');
+    })() +
+`
+
+Thank you for your business! 🙏
+${coName}`;
+
+  // First download the PDF so they can attach it manually
+  buildPDF().then(doc => {
+    doc.save(`${prefix}${num}_invoice.pdf`);
+    setTimeout(() => {
+      const waUrl = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      window.open(waUrl, '_blank');
+      closeSendModal();
+      showToast('PDF saved — attach it in WhatsApp ✓');
+    }, 500);
+  }).catch(() => {
+    const waUrl = 'https://wa.me/?text=' + encodeURIComponent(msg);
+    window.open(waUrl, '_blank');
+    closeSendModal();
+  });
 }
 function toggleDrawer(forceState) {
   const d = document.getElementById('saved-drawer');
@@ -1268,5 +2118,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 </script>
+
 </body>
 </html>
