@@ -690,9 +690,10 @@
   }
   .login-overlay.hidden { display: none; }
   .login-card {
-    background: var(--paper);
+    background: #FEFCE8;
+    background: var(--paper, #FEFCE8);
     border: 1px solid #C8C0A0;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
     padding: 40px 36px 36px;
     max-width: 380px; width: 90%;
     text-align: center;
@@ -705,15 +706,15 @@
     border-right: 1px solid #A09050;
   }
   .login-logo-title {
-    font-family: 'IM Fell English', serif;
-    font-size: 24px; color: var(--ink);
-    border: 2px solid var(--ink);
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 24px; color: #2D2D7A;
+    border: 2px solid #2D2D7A;
     padding: 8px 12px; margin-bottom: 6px;
   }
   .login-sub {
-    font-family: 'Inconsolata', monospace;
+    font-family: 'Inconsolata', 'Courier New', monospace;
     font-size: 11px; letter-spacing: 1.5px;
-    color: var(--ink-faint); text-transform: uppercase;
+    color: #8888CC; text-transform: uppercase;
     margin-bottom: 30px;
   }
   .login-btn {
@@ -1183,9 +1184,15 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "46565350276",
   appId:             "1:46565350276:web:0af43d204d596594939bd1"
 };
-firebase.initializeApp(FIREBASE_CONFIG);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+let auth, db;
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+} catch(e) {
+  console.error('Firebase init error:', e);
+  document.getElementById('login-error').textContent = 'App error: ' + e.message;
+}
 
 // ── State ──────────────────────────────────────────────
 let currentUser      = null;
@@ -1215,6 +1222,7 @@ function updateConvertBanner() {
 }
 
 // ── Auth state listener — app entry point ──────────────
+if (auth) {
 auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
@@ -1230,6 +1238,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('user-bar').style.display  = 'none';
   }
 });
+} // end if(auth)
 
 function appInit() {
   setTodayDate();
