@@ -942,32 +942,11 @@
 </head>
 <body>
 
-<!-- ══ LOGIN OVERLAY ══ -->
-<div class="login-overlay" id="login-overlay">
-  <div class="login-card">
-    <div class="login-logo-title">Tax Invoice / Quote</div>
-    <div class="login-sub">Receipt Book · Sign in to continue</div>
-
-    <button class="login-btn login-btn-google" onclick="signInWithGoogle()">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-      Continue with Google
-    </button>
-
-    <div class="login-divider">OR</div>
-
-    <div id="login-error" class="login-error"></div>
-    <input class="login-input" id="login-email" type="email" placeholder="Email address" autocomplete="email">
-    <input class="login-input" id="login-pass"  type="password" placeholder="Password" autocomplete="current-password">
-    <button class="login-btn login-btn-email" id="login-submit-btn" onclick="signInWithEmail()">Sign in</button>
-
-    <div class="login-switch" id="login-switch-text">
-      No account? <span onclick="toggleSignUpMode()">Create one free</span>
-    </div>
-  </div>
-</div>
+<!-- ══ LOGIN OVERLAY ══ (hidden - no auth required) -->
+<div class="login-overlay hidden" id="login-overlay"></div>
 
 <!-- ══ MAIN APP ══ -->
-<div class="app-shell hidden" id="app-shell">
+<div class="app-shell" id="app-shell">
 
 <!-- Toolbar -->
 <div class="toolbar">
@@ -977,11 +956,7 @@
     <button class="mode-btn quote-active"      id="btn-mode-quote"   onclick="setMode('quote')">QUOTE</button>
   </div>
   <div class="toolbar-actions">
-    <div class="user-bar" id="user-bar" style="display:none">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <span class="user-name" id="user-name"></span>
-      <button class="btn-signout" onclick="signOutUser()">Sign out</button>
-    </div>
+    <div class="user-bar" id="user-bar" style="display:none"></div>
     <button class="btn btn-new" onclick="newInvoice()">+ New</button>
     <button class="btn btn-save" onclick="saveInvoice()">💾 Save</button>
     <button class="btn btn-send" onclick="openSendModal()" style="background:#1565C0;color:#fff;">✉ Send</button>
@@ -1186,68 +1161,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- EmailJS — send email without a server -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<!-- Firebase SDK — loads before app code -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-// ── Firebase config & init ─────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAQWkq2yX626emv09X838xh3ILiaK3BBks",
-  authDomain:        "invoice-app-37817.firebaseapp.com",
-  projectId:         "invoice-app-37817",
-  storageBucket:     "invoice-app-37817.firebasestorage.app",
-  messagingSenderId: "46565350276",
-  appId:             "1:46565350276:web:0af43d204d596594939bd1"
-};
-
+// ── No-auth mode: app runs fully offline with localStorage ──
 let auth = null, db = null;
-
-function initFirebase() {
-  try {
-    if (typeof firebase === 'undefined') {
-      console.warn('Firebase not loaded yet, retrying...');
-      setTimeout(initFirebase, 500);
-      return;
-    }
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    auth = firebase.auth();
-    db   = firebase.firestore();
-    // Now set up auth listener
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        currentUser = user;
-        document.getElementById('login-overlay').classList.add('hidden');
-        document.getElementById('app-shell').classList.remove('hidden');
-        const initials = (user.displayName || user.email || '?').charAt(0).toUpperCase();
-        document.getElementById('user-avatar').textContent = initials;
-        document.getElementById('user-name').textContent   = user.displayName || user.email;
-        document.getElementById('user-bar').style.display  = 'flex';
-        appInit();
-      } else {
-        currentUser = null;
-        document.getElementById('login-overlay').classList.remove('hidden');
-        document.getElementById('app-shell').classList.add('hidden');
-        document.getElementById('user-bar').style.display  = 'none';
-      }
-    });
-  } catch(e) {
-    console.error('Firebase error:', e);
-    const errEl = document.getElementById('login-error');
-    if (errEl) errEl.textContent = 'Connection error — check internet and refresh.';
-  }
-}
-
-// Login screen is visible immediately via HTML/CSS — Firebase loads async
-window.addEventListener('load', initFirebase);
-
-// ── State ──────────────────────────────────────────────
-let currentUser      = null;
+let currentUser      = { uid: 'local' }; // always "logged in" locally
 let currentInvoiceId = null;
 let docType          = 'invoice';
 let isSignUpMode     = false;
 const GST_RATE       = 0.1;
+
+// Boot the app immediately on load
+window.addEventListener('load', () => {
+  document.getElementById('login-overlay').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  appInit();
+});
 
 // ── Mode switching ─────────────────────────────────────
 function setMode(mode, silent) {
@@ -1322,40 +1251,22 @@ function loadLogo(input) {
 }
 
 function loadCompanyProfile() {
-  // Logo from localStorage (per user)
-  const logo = localStorage.getItem('logo_' + (currentUser?.uid || 'local'));
+  const logo = localStorage.getItem('logo_local');
   if (logo) {
     document.getElementById('logo-img').src = logo;
     document.getElementById('logo-img').style.display = 'block';
     document.getElementById('logo-placeholder').style.display = 'none';
   }
-  if (!currentUser) return;
-  // Load profile fields from Firestore
-  db.collection('users').doc(currentUser.uid).collection('profile').doc('company')
-    .get().then(doc => {
-      if (doc.exists) {
-        const d = doc.data();
-        ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
-          if (d[f]) document.getElementById(f).value = d[f];
-        });
-      }
-    }).catch(() => {
-      // Fallback to localStorage
-      ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
-        const val = localStorage.getItem(f);
-        if (val) document.getElementById(f).value = val;
-      });
-    });
+  ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
+    const val = localStorage.getItem(f);
+    if (val) document.getElementById(f).value = val;
+  });
 }
 
 function saveProfileToFirestore() {
-  if (!currentUser) return;
-  const data = {};
   ['co-name','co-abn-top','co-addr','co-phone'].forEach(f => {
-    data[f] = document.getElementById(f)?.value || '';
+    localStorage.setItem(f, document.getElementById(f)?.value || '');
   });
-  db.collection('users').doc(currentUser.uid).collection('profile').doc('company')
-    .set(data, { merge: true });
 }
 
 // Auto-save company details on blur
@@ -1522,33 +1433,40 @@ function collectData() {
   };
 }
 
+function lsGetAll() {
+  try { return JSON.parse(localStorage.getItem('invoices_local') || '[]'); } catch(e) { return []; }
+}
+function lsSaveAll(arr) {
+  localStorage.setItem('invoices_local', JSON.stringify(arr));
+}
+
 async function saveInvoice() {
-  if (!currentUser) { showToast('Please sign in first'); return; }
   setSyncing(true);
   const data = collectData();
-  const col = db.collection('users').doc(currentUser.uid).collection('invoices');
+  const all  = lsGetAll();
 
   try {
     if (currentInvoiceId) {
-      // Update existing
-      await col.doc(currentInvoiceId).update({ ...data, savedAt: new Date().toISOString() });
+      const idx = all.findIndex(d => d.id === currentInvoiceId);
+      if (idx !== -1) { all[idx] = { ...all[idx], ...data, savedAt: new Date().toISOString() }; }
     } else {
-      // New doc — get count first for number
-      const snap = await col.where('docType','==', docType).get();
-      const num  = String(snap.size + 1).padStart(6, '0');
+      const sameType = all.filter(d => (d.docType||'invoice') === docType);
+      const num    = String(sameType.length + 1).padStart(6, '0');
       const prefix = docType === 'quote' ? 'QT' : 'JP';
       data.number = num;
       data.prefix = prefix;
-      document.getElementById('inv-num').textContent = num;
+      document.getElementById('inv-num').textContent    = num;
       document.getElementById('inv-prefix').textContent = prefix;
-      const ref = await col.add(data);
-      currentInvoiceId = ref.id;
+      currentInvoiceId = 'local_' + Date.now();
+      data.id = currentInvoiceId;
+      all.unshift(data);
     }
+    lsSaveAll(all);
     setSyncing(false);
     const label = docType === 'quote' ? 'Quote' : 'Invoice';
     const num   = document.getElementById('inv-num').textContent;
     const pre   = document.getElementById('inv-prefix').textContent;
-    showToast('✓ ' + label + ' ' + pre + num + ' saved to cloud');
+    showToast('✓ ' + label + ' ' + pre + num + ' saved');
     updateConvertBanner();
     loadSavedList();
   } catch (err) {
@@ -1558,12 +1476,10 @@ async function saveInvoice() {
 }
 
 async function loadInvoice(id) {
-  if (!currentUser) return;
   try {
-    const doc = await db.collection('users').doc(currentUser.uid)
-      .collection('invoices').doc(id).get();
-    if (!doc.exists) return;
-    const data = doc.data();
+    const all  = lsGetAll();
+    const data = all.find(d => d.id === id);
+    if (!data) return;
     currentInvoiceId = id;
 
     docType = data.docType || 'invoice';
@@ -1605,8 +1521,8 @@ async function loadInvoice(id) {
 
 async function deleteInvoice(id, label) {
   if (!confirm('Delete ' + label + '?')) return;
-  await db.collection('users').doc(currentUser.uid)
-    .collection('invoices').doc(id).delete();
+  const all = lsGetAll().filter(d => d.id !== id);
+  lsSaveAll(all);
   if (currentInvoiceId === id) {
     currentInvoiceId = null;
     newInvoice(true);
@@ -1634,18 +1550,14 @@ function newInvoice(silent) {
 }
 
 async function loadSavedList() {
-  if (!currentUser) return;
   const el = document.getElementById('saved-list');
-  el.innerHTML = '<div class="empty-saved">Loading...</div>';
   try {
-    const snap = await db.collection('users').doc(currentUser.uid)
-      .collection('invoices').orderBy('savedAt', 'desc').get();
-    if (snap.empty) {
+    const all = lsGetAll();
+    if (!all.length) {
       el.innerHTML = '<div class="empty-saved">No saved documents yet.</div>';
       return;
     }
-    el.innerHTML = snap.docs.map(doc => {
-      const inv = doc.data();
+    el.innerHTML = all.map(inv => {
       const isQuote     = (inv.docType || 'invoice') === 'quote';
       const isConverted = inv.convertedToInvoice;
       const prefix      = inv.prefix || (isQuote ? 'QT' : 'JP');
@@ -1653,7 +1565,7 @@ async function loadSavedList() {
       const badgeText   = isConverted ? 'CONVERTED' : (isQuote ? 'QUOTE' : 'INVOICE');
       const numColor    = isQuote ? 'color:#C47A00' : 'color:var(--red)';
       const convertBtn  = isQuote && !isConverted
-        ? `<button class="saved-load" style="background:#1A5C3A" onclick="convertSavedToInvoice('${doc.id}')">⚡ Convert</button>` : '';
+        ? `<button class="saved-load" style="background:#1A5C3A" onclick="convertSavedToInvoice('${inv.id}')">⚡ Convert</button>` : '';
       const savedDate   = inv.savedAt ? new Date(inv.savedAt).toLocaleDateString() : '';
       return `
       <div class="saved-item">
@@ -1664,8 +1576,8 @@ async function loadSavedList() {
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           ${convertBtn}
-          <button class="saved-load" onclick="loadInvoice('${doc.id}')">Load</button>
-          <button class="saved-delete" onclick="deleteInvoice('${doc.id}','${prefix} ${inv.number||''}')">✕</button>
+          <button class="saved-load" onclick="loadInvoice('${inv.id}')">Load</button>
+          <button class="saved-delete" onclick="deleteInvoice('${inv.id}','${prefix} ${inv.number||''}')">✕</button>
         </div>
       </div>`;
     }).join('');
@@ -1680,10 +1592,14 @@ async function convertToInvoice() {
   if (!confirm('Convert this Quote to a Tax Invoice?\n\nA new invoice number will be assigned and it becomes a legally valid Tax Invoice.')) return;
 
   // Mark original quote as converted
-  if (currentInvoiceId && currentUser) {
-    await db.collection('users').doc(currentUser.uid)
-      .collection('invoices').doc(currentInvoiceId)
-      .update({ convertedToInvoice: true, convertedAt: new Date().toISOString() });
+  if (currentInvoiceId) {
+    const all = lsGetAll();
+    const idx = all.findIndex(d => d.id === currentInvoiceId);
+    if (idx !== -1) {
+      all[idx].convertedToInvoice = true;
+      all[idx].convertedAt = new Date().toISOString();
+      lsSaveAll(all);
+    }
   }
 
   const oldNum = document.getElementById('inv-num').textContent;
@@ -1693,7 +1609,7 @@ async function convertToInvoice() {
   setTodayDate();
   showToast('Quote QT' + oldNum + ' → converting to Invoice…');
   updateConvertBanner();
-  await saveInvoice(); // Assigns new JP number from Firestore count
+  await saveInvoice();
   loadSavedList();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1704,52 +1620,13 @@ async function convertSavedToInvoice(id) {
   setTimeout(() => { if (docType === 'quote') convertToInvoice(); }, 300);
 }
 
-// ── Authentication ─────────────────────────────────────
-function signInWithGoogle() {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => showLoginError(err.message));
-}
-
-function toggleSignUpMode() {
-  isSignUpMode = !isSignUpMode;
-  document.getElementById('login-submit-btn').textContent = isSignUpMode ? 'Create account' : 'Sign in';
-  document.getElementById('login-submit-btn').onclick     = isSignUpMode ? createAccount : signInWithEmail;
-  document.getElementById('login-switch-text').innerHTML  = isSignUpMode
-    ? 'Already have an account? <span onclick="toggleSignUpMode()">Sign in</span>'
-    : 'No account? <span onclick="toggleSignUpMode()">Create one free</span>';
-  document.getElementById('login-error').textContent = '';
-}
-
-function signInWithEmail() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  if (!email || !pass) { showLoginError('Please enter email and password'); return; }
-  auth.signInWithEmailAndPassword(email, pass)
-    .catch(err => showLoginError(err.message));
-}
-
-function createAccount() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  if (!email || !pass) { showLoginError('Please enter email and password'); return; }
-  if (pass.length < 6) { showLoginError('Password must be at least 6 characters'); return; }
-  auth.createUserWithEmailAndPassword(email, pass)
-    .catch(err => showLoginError(err.message));
-}
-
-function signOutUser() {
-  if (!confirm('Sign out?')) return;
-  auth.signOut().then(() => {
-    currentUser = null;
-    currentInvoiceId = null;
-    document.getElementById('items-body').innerHTML = '';
-    document.getElementById('saved-list').innerHTML = '';
-  });
-}
-
-function showLoginError(msg) {
-  document.getElementById('login-error').textContent = msg;
-}
+// ── Authentication (no-op — offline mode) ─────────────
+function signInWithGoogle()  {}
+function signInWithEmail()   {}
+function createAccount()     {}
+function toggleSignUpMode()  {}
+function signOutUser()       {}
+function showLoginError(msg) {}
 
 // ── Payment status ─────────────────────────────────────
 let payStatus = 'unpaid';
@@ -1759,10 +1636,10 @@ function setPayStatus(status) {
     document.getElementById('pill-' + s).classList.toggle('active', s === status);
   });
   // Auto-save status if doc is already saved
-  if (currentInvoiceId && currentUser) {
-    db.collection('users').doc(currentUser.uid)
-      .collection('invoices').doc(currentInvoiceId)
-      .update({ payStatus: status }).catch(() => {});
+  if (currentInvoiceId) {
+    const all = lsGetAll();
+    const idx = all.findIndex(d => d.id === currentInvoiceId);
+    if (idx !== -1) { all[idx].payStatus = status; lsSaveAll(all); }
   }
   showToast('Status → ' + status.charAt(0).toUpperCase() + status.slice(1));
 }
@@ -2082,15 +1959,16 @@ async function sendByEmail() {
       pdf_base64:     pdfB64
     });
 
-    // Log in Firestore
-    if (currentUser && currentInvoiceId) {
-      await db.collection('users').doc(currentUser.uid)
-        .collection('invoices').doc(currentInvoiceId)
-        .update({
-          lastSentTo:   to,
-          lastSentAt:   new Date().toISOString(),
-          sentCount:    firebase.firestore.FieldValue.increment(1)
-        });
+    // Log sent info locally
+    if (currentInvoiceId) {
+      const all = lsGetAll();
+      const idx = all.findIndex(d => d.id === currentInvoiceId);
+      if (idx !== -1) {
+        all[idx].lastSentTo = to;
+        all[idx].lastSentAt = new Date().toISOString();
+        all[idx].sentCount  = (all[idx].sentCount || 0) + 1;
+        lsSaveAll(all);
+      }
     }
 
     closeSendModal();
