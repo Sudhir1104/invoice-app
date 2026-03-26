@@ -1174,6 +1174,19 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
+// ── Firebase config & init ─────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAQWkq2yX626emv09X838xh3ILiaK3BBks",
+  authDomain:        "invoice-app-37817.firebaseapp.com",
+  projectId:         "invoice-app-37817",
+  storageBucket:     "invoice-app-37817.firebasestorage.app",
+  messagingSenderId: "46565350276",
+  appId:             "1:46565350276:web:0af43d204d596594939bd1"
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
 // ── State ──────────────────────────────────────────────
 let currentUser      = null;
 let currentInvoiceId = null;
