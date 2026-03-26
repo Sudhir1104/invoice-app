@@ -1157,11 +1157,6 @@
 
 </div><!-- /app-shell -->
 
-<!-- jsPDF — PDF generation -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- EmailJS — send email without a server -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-
 <script>
 // ── No-auth mode: app runs fully offline with localStorage ──
 let auth = null, db = null;
@@ -1171,12 +1166,17 @@ let docType          = 'invoice';
 let isSignUpMode     = false;
 const GST_RATE       = 0.1;
 
-// Boot the app immediately on load
-window.addEventListener('load', () => {
+// Boot the app immediately — don't wait for external scripts
+let _appBooted = false;
+function bootApp() {
+  if (_appBooted) return;
+  _appBooted = true;
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   appInit();
-});
+}
+document.addEventListener('DOMContentLoaded', bootApp);
+window.addEventListener('load', bootApp);
 
 // ── Mode switching ─────────────────────────────────────
 function setMode(mode, silent) {
@@ -2049,6 +2049,11 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 </script>
+
+<!-- jsPDF — PDF generation (optional, loaded async) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" async></script>
+<!-- EmailJS — send email without a server (optional) -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" async></script>
 
 </body>
 </html>
