@@ -181,7 +181,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 0 60px;
+    padding: 0;
+    margin: 0;
     background-image: repeating-linear-gradient(
       45deg,
       transparent,
@@ -683,11 +684,20 @@
   .toast.show { transform: translateX(-50%) translateY(0); }
 
   /* ── Login screen overlay ── */
+  html, body { height: 100%; }
+
   .login-overlay {
-    position: fixed; inset: 0; z-index: 9999;
+    width: 100%;
+    min-height: 100vh;
     background: #E8E4D0;
-    display: flex; align-items: center; justify-content: center;
-    background-image: repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(160,150,100,0.04) 2px,rgba(160,150,100,0.04) 4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+    background-image: repeating-linear-gradient(
+      45deg, transparent, transparent 2px,
+      rgba(160,150,100,0.04) 2px, rgba(160,150,100,0.04) 4px
+    );
   }
   .login-overlay.hidden { display: none; }
   .login-card {
@@ -810,7 +820,8 @@
 
   /* ── Send / Share modal ── */
   .modal-backdrop {
-    display: none; position: fixed; inset: 0; z-index: 8000;
+    display: none; position: absolute; inset: 0; z-index: 8000;
+    min-height: 100vh;
     background: rgba(30,28,20,0.55);
     align-items: center; justify-content: center;
   }
@@ -906,7 +917,8 @@
 
   /* ── PDF generation loading overlay ── */
   .pdf-loading {
-    display: none; position: fixed; inset: 0; z-index: 9000;
+    display: none; position: absolute; inset: 0; z-index: 9000;
+    min-height: 100vh;
     background: rgba(30,28,20,0.7);
     align-items: center; justify-content: center; flex-direction: column; gap: 16px;
   }
@@ -922,7 +934,8 @@
     letter-spacing: 1px; color: #fff;
   }
 
-  /* ── Hide send button & status strip from print ── */
+  .app-shell { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px 0 60px; }
+  .app-shell.hidden { display: none; }
   @media print {
     .status-strip, .modal-backdrop, .pdf-loading, .btn-send { display: none !important; }
   }
@@ -954,6 +967,7 @@
 </div>
 
 <!-- ══ MAIN APP ══ -->
+<div class="app-shell hidden" id="app-shell">
 
 <!-- Toolbar -->
 <div class="toolbar">
@@ -1166,6 +1180,8 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+</div><!-- /app-shell -->
+
 <!-- jsPDF — PDF generation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- EmailJS — send email without a server -->
@@ -1185,15 +1201,46 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "46565350276",
   appId:             "1:46565350276:web:0af43d204d596594939bd1"
 };
-let auth, db;
-try {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-  db   = firebase.firestore();
-} catch(e) {
-  console.error('Firebase init error:', e);
-  document.getElementById('login-error').textContent = 'App error: ' + e.message;
+
+let auth = null, db = null;
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase not loaded yet, retrying...');
+      setTimeout(initFirebase, 500);
+      return;
+    }
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    auth = firebase.auth();
+    db   = firebase.firestore();
+    // Now set up auth listener
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('app-shell').classList.remove('hidden');
+        const initials = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+        document.getElementById('user-avatar').textContent = initials;
+        document.getElementById('user-name').textContent   = user.displayName || user.email;
+        document.getElementById('user-bar').style.display  = 'flex';
+        appInit();
+      } else {
+        currentUser = null;
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.getElementById('app-shell').classList.add('hidden');
+        document.getElementById('user-bar').style.display  = 'none';
+      }
+    });
+  } catch(e) {
+    console.error('Firebase error:', e);
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.textContent = 'Connection error — check internet and refresh.';
+  }
 }
+
+// Login screen is visible immediately via HTML/CSS — Firebase loads async
+window.addEventListener('load', initFirebase);
 
 // ── State ──────────────────────────────────────────────
 let currentUser      = null;
@@ -1222,24 +1269,7 @@ function updateConvertBanner() {
   banner.classList.toggle('visible', docType === 'quote');
 }
 
-// ── Auth state listener — app entry point ──────────────
-if (auth) {
-auth.onAuthStateChanged(user => {
-  if (user) {
-    currentUser = user;
-    document.getElementById('login-overlay').classList.add('hidden');
-    const initials = (user.displayName || user.email || '?').charAt(0).toUpperCase();
-    document.getElementById('user-avatar').textContent = initials;
-    document.getElementById('user-name').textContent   = user.displayName || user.email;
-    document.getElementById('user-bar').style.display  = 'flex';
-    appInit();
-  } else {
-    currentUser = null;
-    document.getElementById('login-overlay').classList.remove('hidden');
-    document.getElementById('user-bar').style.display  = 'none';
-  }
-});
-} // end if(auth)
+// ── App initialisation (called after login) ────────────
 
 function appInit() {
   setTodayDate();
