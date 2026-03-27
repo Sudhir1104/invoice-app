@@ -421,6 +421,25 @@ export default function App() {
     setTimeout(saveDoc, 100);
   };
 
+  const handlePrint = () => {
+    // Save first if not yet saved
+    if (!doc.number) {
+      saveDoc();
+      setTimeout(() => {
+        const clientName = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
+        document.title = clientName;
+        window.print();
+        setTimeout(() => { document.title = "Invoice App"; }, 3000);
+      }, 400);
+    } else {
+      const clientName = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
+      const docNum = `${doc.prefix || (isQuote ? "QT" : "INV")}-${doc.number}`;
+      document.title = `${clientName} ${docNum}`;
+      window.print();
+      setTimeout(() => { document.title = "Invoice App"; }, 3000);
+    }
+  };
+
   const handleLogoUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -484,6 +503,20 @@ export default function App() {
           .add-row-btn { display: none !important; }
           .sig-clear-row { display: none !important; }
 
+          /* Beta watermark */
+          #invoice-paper::after {
+            content: 'BETA VERSION — invoice.bluesquaresolutions.com.au';
+            display: block !important;
+            text-align: center;
+            font-size: 9px;
+            color: #bbb;
+            font-family: monospace;
+            letter-spacing: 1.5px;
+            padding-top: 10px;
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+          }
+
           /* T&C page */
           .tc-page {
             display: block !important;
@@ -493,6 +526,13 @@ export default function App() {
         }
         .tc-page { display: none; }
       `}</style>
+      {/* Beta banner - screen only */}
+      <div className="no-print" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
+        🚀 BETA VERSION — Your feedback helps us improve! &nbsp;·&nbsp;
+        <a href="https://tally.so" target="_blank" style={{ color: "#FFD700", textDecoration: "underline" }}>Give Feedback</a>
+        &nbsp;·&nbsp; invoice.bluesquaresolutions.com.au
+      </div>
+
       <div className="no-print" style={S.toolbar}>
         <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>📋 Receipt Book</span>
         <div style={{ display: "flex", background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: 3, gap: 2 }}>
@@ -505,33 +545,7 @@ export default function App() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={S.btn("#2D2D7A")} onClick={newDoc}>+ New</button>
           <button style={S.btn("#2E7D32")} onClick={saveDoc}>💾 Save</button>
-          <button style={S.btn("#C0392B")} onClick={() => {
-            // Auto-save first if not yet saved to get a number
-            const doPrint = (number, prefix) => {
-              const clientName = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
-              const docNum = number ? `${prefix || (isQuote ? "QT" : "INV")}-${number}` : "";
-              document.title = docNum ? `${clientName} ${docNum}` : clientName;
-              window.print();
-              setTimeout(() => { document.title = "Invoice App"; }, 3000);
-            };
-            if (!doc.number) {
-              // Save first to get number, then print
-              const all = load();
-              const type = isQuote ? "quote" : "invoice";
-              const prefix = isQuote ? "QT" : "INV";
-              const num = getNextNumber(type);
-              const data = { ...doc, payStatus, savedAt: new Date().toISOString(), number: num, prefix, id: "local_" + Date.now() };
-              saveClient(doc.to, doc.abnR);
-              all.unshift(data);
-              save(all);
-              setSaved(load());
-              setDocId(data.id);
-              setDoc(d => ({ ...d, number: num, prefix }));
-              setTimeout(() => doPrint(num, prefix), 300);
-            } else {
-              doPrint(doc.number, doc.prefix);
-            }
-          }}>🖨 Print / PDF</button>
+          <button style={S.btn("#C0392B")} onClick={handlePrint}>🖨 Print / PDF</button>
         </div>
       </div>
 
