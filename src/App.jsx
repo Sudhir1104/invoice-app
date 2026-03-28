@@ -441,6 +441,7 @@ export default function App({ user }) {
   };
 
   const deleteDoc = async (id, label) => {
+    if (!isPremium) { showToast("Upgrade to Premium to delete documents"); return; }
     if (!window.confirm("Delete " + label + "?")) return;
     await dbDeleteDocument(id); const docs = await dbLoadDocuments(); setSaved(docs);
     if (docId === id) { setDoc(emptyDoc(mode)); setDocId(null); } showToast("Deleted");
@@ -808,7 +809,12 @@ export default function App({ user }) {
                     <div style={{ display: "flex", gap: 6 }}>
                       {iq && !inv.convertedToInvoice && <button onClick={() => { loadDoc(inv); setTimeout(convertToInvoice, 200); }} style={S.btn("#1A5C3A")}>Convert</button>}
                       <button onClick={() => loadDoc(inv)} style={S.btn("#2D2D7A")}>Load</button>
-                      <button onClick={() => deleteDoc(inv.id, docNum)} style={S.btn("#C0392B")}>Delete</button>
+                      <button
+                        onClick={() => deleteDoc(inv.id, docNum)}
+                        title={!isPremium ? "Upgrade to Premium to delete documents" : "Delete"}
+                        style={{ ...S.btn(!isPremium ? "#ccc" : "#C0392B"), cursor: !isPremium ? "not-allowed" : "pointer", opacity: !isPremium ? 0.5 : 1 }}>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 );
