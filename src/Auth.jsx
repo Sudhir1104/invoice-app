@@ -21,7 +21,7 @@ export default function Auth() {
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
-      else setMessage("✅ Account created! Please check your email to confirm, then sign in.");
+      else setMessage("✓ Account created! Please check your email to confirm, then sign in.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
@@ -34,7 +34,9 @@ export default function Auth() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#E8E4D0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20,
+    <div style={{
+      minHeight: "100vh", background: "#E8E4D0", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center", padding: 20,
       backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(160,150,100,0.04) 2px, rgba(160,150,100,0.04) 4px)"
     }}>
       {/* Logo / Title */}
@@ -74,10 +76,7 @@ export default function Auth() {
             Email Address
           </label>
           <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={handleKeyDown}
+            type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="you@example.com"
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #9999CC", borderRadius: 6, fontFamily: "monospace", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
@@ -89,21 +88,15 @@ export default function Auth() {
             Password
           </label>
           <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
+            type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown}
             placeholder={isSignUp ? "Minimum 6 characters" : "Your password"}
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #9999CC", borderRadius: 6, fontFamily: "monospace", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
         </div>
 
         {/* Submit button */}
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{ width: "100%", padding: "13px", background: loading ? "#8888CC" : ink, color: "#fff", border: "none", borderRadius: 8, fontFamily: "Lato, sans-serif", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", letterSpacing: 0.5, marginBottom: 16 }}
-        >
+        <button onClick={handleSubmit} disabled={loading}
+          style={{ width: "100%", padding: "13px", background: loading ? "#8888CC" : ink, color: "#fff", border: "none", borderRadius: 8, fontFamily: "Lato, sans-serif", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", letterSpacing: 0.5, marginBottom: 16 }}>
           {loading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
         </button>
 
@@ -130,8 +123,28 @@ export default function Auth() {
         )}
       </div>
 
+      {/* Download User Guide */}
+      <div style={{ marginTop: 16, width: "100%", maxWidth: 400 }}>
+        <a
+          href="/BlueSquareInvoice_UserGuide.pdf"
+          download="BlueSquareInvoice_UserGuide.pdf"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            width: "100%", padding: "11px", boxSizing: "border-box",
+            background: "transparent", border: "1.5px solid #B8A870", borderRadius: 8,
+            fontFamily: "monospace", fontSize: 12, color: "#6A5F30", fontWeight: 700,
+            textDecoration: "none", letterSpacing: 0.5, cursor: "pointer",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(184,168,112,0.15)"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          📄 Download User Guide (PDF)
+        </a>
+      </div>
+
       {/* Beta note */}
-      <div style={{ marginTop: 20, fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center" }}>
+      <div style={{ marginTop: 16, fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center" }}>
         🚀 BETA VERSION — invoice.bluesquaresolutions.com.au
       </div>
     </div>
