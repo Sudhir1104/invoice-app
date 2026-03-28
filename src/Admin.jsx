@@ -28,67 +28,57 @@ export default function Admin({ user, onBack }) {
   const loadUsers = async () => {
     setLoading(true);
     try {
+      // user_settings is the source of truth — every user has a row here
+      const { data: settings, error } = await supabase
+        .from("user_settings")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
       // Load document counts per user
       const { data: docs } = await supabase
         .from("documents")
         .select("user_id");
 
-      // Load all profiles
+      // Load all profiles for company details
       const { data: profiles } = await supabase
         .from("profiles")
         .select("*");
 
-      // Load user_settings for premium status
-      const { data: settings } = await supabase
-        .from("user_settings")
-        .select("user_id, is_premium, email");
-      const settingsMap = {};
-      const emailMap = {};
-      (settings || []).forEach(s => { 
-        settingsMap[s.user_id] = s.is_premium;
-        if (s.email) emailMap[s.user_id] = s.email;
-      });
-
-      // Load all counters (one row per user = one registered user)
+      // Load counters
       const { data: counters } = await supabase
         .from("counters")
         .select("user_id, invoice_count, quote_count");
 
-      // Count docs per user
+      // Build lookup maps
       const docCounts = {};
       (docs || []).forEach(d => {
         docCounts[d.user_id] = (docCounts[d.user_id] || 0) + 1;
       });
-
-      // Build profiles map
       const profileMap = {};
       (profiles || []).forEach(p => { profileMap[p.user_id] = p; });
+      const counterMap = {};
+      (counters || []).forEach(c => { counterMap[c.user_id] = c; });
 
-      // Get all unique user IDs from counters + profiles + docs
-      const allUserIds = new Set([
-        ...(counters || []).map(c => c.user_id),
-        ...(profiles || []).map(p => p.user_id),
-        ...Object.keys(docCounts),
-      ]);
-
-      // Merge into user list
-      const merged = Array.from(allUserIds).map(uid => {
-        const profile = profileMap[uid] || {};
-        const counter = (counters || []).find(c => c.user_id === uid) || {};
+      // Build user list from user_settings (all users)
+      const merged = (settings || []).map(s => {
+        const profile = profileMap[s.user_id] || {};
+        const counter = counterMap[s.user_id] || {};
         return {
-          user_id: uid,
+          user_id: s.user_id,
           company_name: profile.company_name || "",
           abn: profile.abn || "",
           phone: profile.phone || "",
-          email: emailMap[uid] || profile.email || "",
-          is_premium: settingsMap[uid] !== undefined ? settingsMap[uid] : (profile.is_premium || false),
+          email: s.email || profile.email || "",
+          is_premium: s.is_premium || false,
           deleted: profile.deleted || false,
           deleted_at: profile.deleted_at || null,
-          docCount: docCounts[uid] || 0,
+          docCount: docCounts[s.user_id] || 0,
           invoiceCount: counter.invoice_count || 0,
           quoteCount: counter.quote_count || 0,
+          joinedAt: s.created_at || "",
         };
-      }).sort((a, b) => b.docCount - a.docCount);
+      });
 
       setUsers(merged);
     } catch (e) {
@@ -238,6 +228,7 @@ export default function Admin({ user, onBack }) {
                     }
                     {u.company_name && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#888", marginTop: 2 }}>{u.company_name}</div>}
                     {u.phone && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#aaa" }}>{u.phone}</div>}
+                    {u.joinedAt && <div style={{ fontFamily: "monospace", fontSize: 9, color: "#ccc", marginTop: 2 }}>Joined: {new Date(u.joinedAt).toLocaleDateString("en-AU")}</div>}
                   </div>
 
                   {/* Doc count */}
