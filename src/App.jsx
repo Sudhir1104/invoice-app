@@ -137,7 +137,8 @@ async function dbSaveProfile(profileData) {
   const userId = await getUserId();
   if (!userId) return;
   saveProfile(profileData);
-  const row = { user_id: userId, company_name: profileData.coName || "", abn: profileData.coAbn || "", address: profileData.coAddr || "", phone: profileData.coPhone || "" };
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const row = { user_id: userId, company_name: profileData.coName || "", abn: profileData.coAbn || "", address: profileData.coAddr || "", phone: profileData.coPhone || "", email: authUser?.email || "" };
   const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", userId).single();
   if (existing) { await supabase.from("profiles").update(row).eq("user_id", userId); }
   else { await supabase.from("profiles").insert(row); }

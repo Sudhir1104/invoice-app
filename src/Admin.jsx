@@ -69,6 +69,7 @@ export default function Admin({ user, onBack }) {
           company_name: profile.company_name || "",
           abn: profile.abn || "",
           phone: profile.phone || "",
+          email: profile.email || "",
           is_premium: profile.is_premium || false,
           deleted: profile.deleted || false,
           deleted_at: profile.deleted_at || null,
@@ -110,6 +111,7 @@ export default function Admin({ user, onBack }) {
   const filtered = users.filter(u =>
     !search ||
     (u.company_name || "").toLowerCase().includes(search.toLowerCase()) ||
+    (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
     (u.user_id || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -190,8 +192,9 @@ export default function Admin({ user, onBack }) {
                   {/* Company / User ID */}
                   <div>
                     <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: NAVY }}>{u.company_name || "—"}</div>
-                    <div style={{ fontFamily: "monospace", fontSize: 9, color: "#aaa", marginTop: 2 }}>{u.user_id?.slice(0, 18)}...</div>
+                    {u.email && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#2D2D7A", marginTop: 2 }}>{u.email}</div>}
                     {u.phone && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#888" }}>{u.phone}</div>}
+                    <div style={{ fontFamily: "monospace", fontSize: 9, color: "#ccc", marginTop: 1 }}>{u.user_id?.slice(0, 18)}...</div>
                   </div>
 
                   {/* Doc count */}
