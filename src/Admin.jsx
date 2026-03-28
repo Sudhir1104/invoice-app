@@ -152,6 +152,7 @@ export default function Admin({ user, onBack }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#E8E4D0", fontFamily: "Lato, sans-serif", padding: "0 0 60px" }}>
+      <style>{mobileCSS}</style>
 
       {/* Toast */}
       {toast && (
@@ -161,7 +162,7 @@ export default function Admin({ user, onBack }) {
       )}
 
       {/* Header */}
-      <div style={{ background: NAVY, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div className="admin-header" style={{ background: NAVY, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#fff", letterSpacing: 1 }}>Admin Panel</div>
           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#8888CC", marginTop: 2 }}>Blue Square Invoice — User Management</div>
@@ -177,7 +178,7 @@ export default function Admin({ user, onBack }) {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px" }}>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+        <div className="admin-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
           {[
             ["Total Users", users.length, NAVY],
             ["Premium", premiumCount, GREEN],
@@ -191,7 +192,7 @@ export default function Admin({ user, onBack }) {
         </div>
 
         {/* Search + Refresh */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
+        <div className="admin-search-row" style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -209,7 +210,7 @@ export default function Admin({ user, onBack }) {
         ) : (
           <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #C8C0A0", overflow: "hidden" }}>
             {/* Table header */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", background: NAVY, padding: "10px 16px", gap: 8 }}>
+            <div className="admin-table-header" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", background: NAVY, padding: "10px 16px", gap: 8 }}>
               {["Email / Company", "Documents", "Status", "Deleted", "Action"].map(h => (
                 <div key={h} style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, color: "#fff", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
               ))}
@@ -219,7 +220,7 @@ export default function Admin({ user, onBack }) {
               <div style={{ textAlign: "center", fontFamily: "monospace", fontSize: 12, color: "#8888CC", padding: 32 }}>No users found.</div>
             ) : (
               filtered.map((u, i) => (
-                <div key={u.user_id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", padding: "12px 16px", gap: 8, alignItems: "center", borderBottom: i < filtered.length - 1 ? "1px solid #f0f0f0" : "none", background: i % 2 === 0 ? "#fff" : "#FAFAF8" }}>
+                <div key={u.user_id} className="admin-user-row" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", padding: "12px 16px", gap: 8, alignItems: "center", borderBottom: i < filtered.length - 1 ? "1px solid #f0f0f0" : "none", background: i % 2 === 0 ? "#fff" : "#FAFAF8" }}>
                   {/* Company / User */}
                   <div>
                     {u.email
@@ -232,7 +233,7 @@ export default function Admin({ user, onBack }) {
                   </div>
 
                   {/* Doc count */}
-                  <div>
+                  <div className="admin-col-docs">
                     <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: u.docCount >= 10 ? RED : u.docCount >= 8 ? "#C47A00" : NAVY }}>
                       {u.docCount}
                     </span>
@@ -243,14 +244,14 @@ export default function Admin({ user, onBack }) {
                   </div>
 
                   {/* Status badge */}
-                  <div>
+                  <div className="admin-col-status">
                     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, fontFamily: "monospace", fontSize: 10, fontWeight: 700, background: u.is_premium ? "#D1FAE5" : "#FEF3C7", color: u.is_premium ? "#065F46" : "#92400E", border: `1px solid ${u.is_premium ? "#10B981" : "#F59E0B"}` }}>
                       {u.is_premium ? "PREMIUM" : "TRIAL"}
                     </span>
                   </div>
 
                   {/* Deleted */}
-                  <div>
+                  <div className="admin-col-deleted">
                     {u.deleted ? (
                       <span style={{ fontFamily: "monospace", fontSize: 10, color: RED }}>
                         Deleted
@@ -261,7 +262,7 @@ export default function Admin({ user, onBack }) {
                   </div>
 
                   {/* Toggle + Delete buttons */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div className="admin-col-actions" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <button
                       onClick={() => togglePremium(u.user_id, u.is_premium)}
                       disabled={toggling === u.user_id || u.deleted}
