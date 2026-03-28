@@ -646,6 +646,26 @@ export default function App({ user }) {
           /* Hide NZ GST on mobile */
           .nz-only { display: none !important; }
 
+          /* Date left aligned */
+          input[type="date"] {
+            text-align: left !important;
+            padding-left: 4px !important;
+          }
+
+          /* Hide "assigned on save" text on mobile */
+          .assigned-on-save { display: none !important; }
+
+          /* Beta banner single line */
+          .beta-banner span { display: none !important; }
+
+          /* Tighter invoice paper padding */
+          #invoice-paper { padding: 10px 8px !important; }
+
+          /* Smaller invoice number on mobile */
+          .invoice-number-display {
+            font-size: 16px !important;
+          }
+
           /* Mode toggle full width */
           .mode-toggle {
             width: 100% !important;
@@ -838,8 +858,8 @@ export default function App({ user }) {
           <div style={{ padding: "6px 10px" }}>
             <span style={S.label}>{isQuote ? "Quote Number" : "Invoice Number"}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: accentColor }}>{displayNumber}</span>
-              {!doc.number && <span style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC", fontStyle: "italic" }}>(assigned on save)</span>}
+              <span className="invoice-number-display" style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: accentColor }}>{displayNumber}</span>
+              {!doc.number && <span className="assigned-on-save" style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC", fontStyle: "italic" }}>(assigned on save)</span>}
             </div>
           </div>
         </div>
