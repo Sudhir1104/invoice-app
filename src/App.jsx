@@ -124,7 +124,7 @@ async function dbSaveClient(toAddress, abnValue) {
 async function dbLoadProfile() {
   const { data, error } = await supabase.from("profiles").select("*").single();
   if (error || !data) return loadProfile();
-  const profile = { coName: data.company_name || "", coAbn: data.abn || "", coAddr: data.address || "", coPhone: data.phone || "" };
+  const profile = { coName: data.company_name || "", coAbn: data.abn || "", coAddr: data.address || "", coPhone: data.phone || "", isPremium: data.is_premium || false };
   const fromParts = [profile.coName, profile.coAbn ? "ABN: " + profile.coAbn : "", profile.coAddr, profile.coPhone].filter(Boolean);
   profile.from = fromParts.join("\n");
   profile.abnS = profile.coAbn;
@@ -285,6 +285,9 @@ export default function App({ user }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deleteError, setDeleteError] = useState("");
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const BETA_LIMIT = 10;
 
   const totals = calcTotals(doc.rows);
   const isQuote = mode === "quote";
@@ -300,6 +303,7 @@ export default function App({ user }) {
       try {
         const [docs, profile] = await Promise.all([dbLoadDocuments(), dbLoadProfile()]);
         setSaved(docs);
+        if (profile.isPremium) setIsPremium(true);
         if (profile.coName || profile.coAbn || profile.coAddr || profile.coPhone) {
           setDoc(d => ({ ...d, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: profile.from || "", abnS: profile.abnS || "" }));
         }
@@ -375,6 +379,11 @@ export default function App({ user }) {
   };
 
   const saveDoc = async () => {
+    // Beta limit check — only applies to NEW documents, not updates, and not premium users
+    if (!docId && !isPremium && saved.length >= BETA_LIMIT) {
+      setShowLimitModal(true);
+      return;
+    }
     setLoading(true);
     try {
       const result = await dbSaveDocument(doc, payStatus, docId);
@@ -482,6 +491,35 @@ export default function App({ user }) {
         </div>
       )}
 
+      {/* Beta Limit Modal */}
+      {showLimitModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.3)", textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🚀</div>
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#2D2D7A", marginBottom: 10 }}>Beta Limit Reached</div>
+            <p style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, marginBottom: 20 }}>
+              You have reached the <strong>10 document limit</strong> for the beta version. Contact us to upgrade to full access with unlimited invoices and quotes.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              <a href="mailto:sudhir@bluesquaresolutions.com.au?subject=Upgrade from Beta&body=Hi, I would like to upgrade my Blue Square Invoice account to full access. My email is: " target="_blank"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#2D2D7A", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                ✉ Email Us to Upgrade
+              </a>
+              <a href="https://wa.me/61490143160?text=Hi%2C%20I%20would%20like%20to%20upgrade%20my%20Blue%20Square%20Invoice%20beta%20account%20to%20full%20access." target="_blank"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#25D366", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                WhatsApp Us to Upgrade
+              </a>
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 16 }}>
+              sudhir@bluesquaresolutions.com.au &nbsp;|&nbsp; +61 490 143 160
+            </div>
+            <button onClick={() => setShowLimitModal(false)} style={{ padding: "8px 24px", borderRadius: 6, border: "1px solid #ddd", background: "#f5f5f5", fontFamily: "monospace", fontSize: 12, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="no-print" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
         BETA VERSION - Your feedback helps us improve!
         <a href="https://tally.so/r/jaLXDJ" target="_blank" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 8 }}>Give Feedback</a>
@@ -489,6 +527,15 @@ export default function App({ user }) {
       </div>
 
       {loading && <div style={{ width: "100%", background: "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, color: "#2E7D32", letterSpacing: 1 }}>Syncing with cloud...</div>}
+
+      {/* Beta doc counter — hidden for premium users */}
+      {!isPremium && (
+        <div className="no-print" style={{ width: "100%", background: saved.length >= BETA_LIMIT ? "#FEE2E2" : saved.length >= 8 ? "#FEF3C7" : "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: saved.length >= BETA_LIMIT ? "#991B1B" : saved.length >= 8 ? "#92400E" : "#2E7D32" }}>
+          BETA: {saved.length} / {BETA_LIMIT} documents used
+          {saved.length >= BETA_LIMIT && <span style={{ marginLeft: 8, fontWeight: 700 }}>— Limit reached. Contact us to upgrade.</span>}
+          {saved.length >= 8 && saved.length < BETA_LIMIT && <span style={{ marginLeft: 8 }}>— {BETA_LIMIT - saved.length} remaining</span>}
+        </div>
+      )}
 
       <div className="no-print" style={S.toolbar}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
