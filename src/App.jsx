@@ -484,7 +484,7 @@ export default function App({ user }) {
 
       <div className="no-print" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
         BETA VERSION - Your feedback helps us improve!
-        <a href="https://tally.so" target="_blank" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 8 }}>Give Feedback</a>
+        <a href="https://tally.so/r/jaLXDJ" target="_blank" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 8 }}>Give Feedback</a>
         <span style={{ margin: "0 8px" }}>|</span> invoice.bluesquaresolutions.com.au
       </div>
 
@@ -634,18 +634,16 @@ export default function App({ user }) {
       )}
 
       {/* Account Management */}
-      {user && (
-        <div className="no-print" style={{ width: "100%", maxWidth: 820, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(192,57,43,0.06)", borderRadius: 8, border: "1px solid rgba(192,57,43,0.15)" }}>
-          <div>
-            <span style={{ fontFamily: "monospace", fontSize: 12, color: "#C0392B", fontWeight: 700 }}>Account</span>
-            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginLeft: 8 }}>{user.email}</span>
-          </div>
-          <button onClick={() => { setShowDeleteModal(true); setDeleteConfirmEmail(""); setDeleteError(""); }}
-            style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #C0392B", background: "transparent", color: "#C0392B", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-            🗑 Delete Account
-          </button>
+      <div className="no-print" style={{ width: "100%", maxWidth: 820, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(192,57,43,0.06)", borderRadius: 8, border: "1px solid rgba(192,57,43,0.15)" }}>
+        <div>
+          <span style={{ fontFamily: "monospace", fontSize: 12, color: "#C0392B", fontWeight: 700 }}>Account</span>
+          {user && <span style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginLeft: 8 }}>{user.email}</span>}
         </div>
-      )}
+        <button onClick={() => { setShowDeleteModal(true); setDeleteConfirmEmail(""); setDeleteError(""); }}
+          style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #C0392B", background: "transparent", color: "#C0392B", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          🗑 Delete Account
+        </button>
+      </div>
 
       <div className="tc-page" style={{ width: "100%", maxWidth: 820, background: "#fff", padding: "40px 48px", fontFamily: "Lato, sans-serif", fontSize: 12, color: "#333", lineHeight: 1.7 }}>
         <div style={{ textAlign: "center", marginBottom: 24, borderBottom: "2px solid #2D2D7A", paddingBottom: 16 }}>
