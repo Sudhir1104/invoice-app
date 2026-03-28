@@ -519,6 +519,40 @@ export default function App({ user }) {
         {pill("overdue", "Overdue", "#FEE2E2", "#991B1B", "#EF4444")}
       </div>
 
+      {/* Share bar */}
+      {doc.number && (
+        <div className="no-print" style={{ width: "100%", maxWidth: 820, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.5)", border: "1px solid #C8C0A0", borderRadius: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", fontWeight: 700, flex: 1 }}>
+            Share {doc.prefix || (isQuote ? "QT" : "INV")}-{doc.number}
+          </span>
+          <button onClick={() => {
+            const clientName = (doc.to || "").split("\n")[0].trim() || "there";
+            const docNum = (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number;
+            const amount = "$" + calcTotals(doc.rows).grandTotal;
+            const company = doc.coName || "us";
+            const type = isQuote ? "quote" : "invoice";
+            const msg = "Hi " + clientName + ",\n\nPlease find your " + type + " *" + docNum + "* for *" + amount + "* from " + company + ".\n\nKindly review and let us know if you have any questions.\n\nThank you,\n" + company;
+            window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+          }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "#25D366", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+            WhatsApp
+          </button>
+          <button onClick={() => {
+            const clientName = (doc.to || "").split("\n")[0].trim() || "there";
+            const docNum = (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number;
+            const totals = calcTotals(doc.rows);
+            const amount = "$" + totals.grandTotal;
+            const company = doc.coName || "us";
+            const type = isQuote ? "Quote" : "Invoice";
+            const subject = type + " " + docNum + " from " + company;
+            const lines = doc.rows.filter(r => r.desc && r.total).map(r => "- " + r.desc + ": $" + r.total).join("\n");
+            const body = "Hi " + clientName + ",\n\nPlease find your " + type.toLowerCase() + " " + docNum + " for " + amount + ".\n\nDate: " + (doc.date || "") + "\n\nItems:\n" + lines + "\n\nSubtotal: $" + totals.subtotal + "\nGST (10%): $" + totals.gstTotal + "\nTotal Inc. GST: " + amount + "\n\nPlease contact us if you have any questions.\n\nKind regards,\n" + company + "\n" + (doc.coPhone || "") + "\n" + (doc.coAddr || "");
+            window.open("mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank");
+          }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "#2D2D7A", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+            Email
+          </button>
+        </div>
+      )}
+
       <div id="invoice-paper" style={S.paper}>
         <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: 1.5, color: isQuote ? "#7AB898" : "#8888CC", textTransform: "uppercase", marginBottom: 6 }}>{isQuote ? "Original Copy - Quote" : "Original Copy"}</div>
         <div style={{ fontFamily: "Georgia, serif", fontSize: 26, color: ink, textAlign: "center", letterSpacing: 1, border: "2px solid " + ink, padding: "8px 16px", marginBottom: 16 }}>{isQuote ? "Quote / Estimate" : "Tax Invoice / Statement"}</div>
