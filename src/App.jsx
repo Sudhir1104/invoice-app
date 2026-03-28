@@ -494,10 +494,9 @@ export default function App({ user }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>Blue Square Invoice</span>
           {user && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</span>
               <button onClick={signOut} style={{ fontFamily: "monospace", fontSize: 11, color: "#C0392B", background: "none", border: "1px solid #C0392B", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>Sign out</button>
-              <button onClick={() => { setShowDeleteModal(true); setDeleteConfirmEmail(""); setDeleteError(""); }} style={{ fontFamily: "monospace", fontSize: 11, color: "#999", background: "none", border: "1px solid #ccc", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>Delete account</button>
             </div>
           )}
         </div>
@@ -631,6 +630,20 @@ export default function App({ user }) {
         <div className="no-print" style={{ width: "100%", maxWidth: 820, background: "#fff", border: "1px solid #C8C0A0", borderRadius: 8, padding: 16, marginTop: 4 }}>
           <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 8 }}>Edit your terms and conditions below. Changes save automatically.</div>
           <textarea value={tcText} onChange={e => { setTcText(e.target.value); saveTC(e.target.value); }} style={{ width: "100%", height: 400, fontFamily: "monospace", fontSize: 12, color: "#333", border: "1px solid #ddd", borderRadius: 6, padding: 12, outline: "none", resize: "vertical", lineHeight: 1.7 }} />
+        </div>
+      )}
+
+      {/* Account Management */}
+      {user && (
+        <div className="no-print" style={{ width: "100%", maxWidth: 820, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(192,57,43,0.06)", borderRadius: 8, border: "1px solid rgba(192,57,43,0.15)" }}>
+          <div>
+            <span style={{ fontFamily: "monospace", fontSize: 12, color: "#C0392B", fontWeight: 700 }}>Account</span>
+            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginLeft: 8 }}>{user.email}</span>
+          </div>
+          <button onClick={() => { setShowDeleteModal(true); setDeleteConfirmEmail(""); setDeleteError(""); }}
+            style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #C0392B", background: "transparent", color: "#C0392B", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            🗑 Delete Account
+          </button>
         </div>
       )}
 
