@@ -152,7 +152,24 @@ export default function Admin({ user, onBack }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#E8E4D0", fontFamily: "Lato, sans-serif", padding: "0 0 60px" }}>
-      <style>{mobileCSS}</style>
+      <style>{`
+        * { box-sizing: border-box; }
+        @media (max-width: 600px) {
+          .admin-table-header { display: none !important; }
+          .admin-user-row { display: block !important; padding: 14px !important; border-bottom: 2px solid #f0f0f0 !important; }
+          .admin-user-row > div { display: block !important; width: 100% !important; margin-bottom: 6px !important; }
+          .admin-col-deleted { display: none !important; }
+          .admin-col-actions { display: flex !important; gap: 8px !important; margin-top: 8px !important; }
+          .admin-col-actions button { flex: 1 !important; }
+          .admin-stats { gap: 8px !important; }
+          .admin-stats > div { padding: 10px !important; }
+          .admin-search-row { flex-direction: column !important; gap: 8px !important; }
+          .admin-search-row input { width: 100% !important; }
+          .admin-search-row button { width: 100% !important; }
+          .admin-header { padding: 12px 14px !important; flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+          .admin-header button { width: 100% !important; }
+        }
+      `}</style>
 
       {/* Toast */}
       {toast && (
