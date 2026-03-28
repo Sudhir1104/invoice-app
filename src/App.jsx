@@ -71,13 +71,18 @@ async function dbGetIsPremium() {
 async function dbEnsureUserSettings() {
   const userId = await getUserId();
   if (!userId) return;
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const email = authUser?.email || "";
   const { data } = await supabase
     .from("user_settings")
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
   if (!data) {
-    await supabase.from("user_settings").insert({ user_id: userId, is_premium: false });
+    await supabase.from("user_settings").insert({ user_id: userId, is_premium: false, email });
+  } else {
+    // Update email if not set
+    await supabase.from("user_settings").update({ email }).eq("user_id", userId);
   }
 }
 

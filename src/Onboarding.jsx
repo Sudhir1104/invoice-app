@@ -128,7 +128,7 @@ export default function Onboarding({ user, onComplete }) {
             type="text"
             value={coName}
             onChange={e => { setCoName(e.target.value); setError(""); }}
-            placeholder="Blue Square Solutions"
+            placeholder="e.g. Smith Plumbing Pty Ltd"
             style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${coName ? NAVY : "#9999CC"}`, borderRadius: 6, fontFamily: "Lato, sans-serif", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
         </div>
@@ -142,7 +142,7 @@ export default function Onboarding({ user, onComplete }) {
             type="text"
             value={coAbn}
             onChange={e => { setCoAbn(e.target.value); setError(""); }}
-            placeholder="XX XXX XXX XXX"
+            placeholder="e.g. 51 824 753 556"
             style={{ width: "100%", padding: "11px 14px", border: `1.5px solid ${coAbn ? NAVY : "#9999CC"}`, borderRadius: 6, fontFamily: "monospace", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
           <div style={{ fontFamily: "monospace", fontSize: 10, color: "#aaa", marginTop: 4 }}>
@@ -159,7 +159,7 @@ export default function Onboarding({ user, onComplete }) {
             type="text"
             value={coAddr}
             onChange={e => setCoAddr(e.target.value)}
-            placeholder="123 Main St, Sydney NSW 2000"
+            placeholder="e.g. 123 Main St, Sydney NSW 2000"
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #9999CC", borderRadius: 6, fontFamily: "Lato, sans-serif", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
         </div>
@@ -173,7 +173,7 @@ export default function Onboarding({ user, onComplete }) {
             type="text"
             value={coPhone}
             onChange={e => setCoPhone(e.target.value)}
-            placeholder="+61 400 000 000 or hello@business.com.au"
+            placeholder="e.g. +61 400 000 000 or hello@yourbusiness.com.au"
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #9999CC", borderRadius: 6, fontFamily: "Lato, sans-serif", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
         </div>
