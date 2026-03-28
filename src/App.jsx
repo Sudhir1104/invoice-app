@@ -124,26 +124,47 @@ async function dbSaveClient(toAddress, abnValue) {
 async function dbLoadProfile() {
   const userId = await getUserId();
   if (!userId) return loadProfile();
+
+  // Use maybeSingle() instead of single() to avoid 406 when no row exists
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("user_id", userId)
-    .single();
-  if (error || !data) return loadProfile();
+    .maybeSingle();
+
+  const local = loadProfile();
+
+  if (!data) {
+    // No profile row yet — return defaults with isPremium false
+    console.log("No profile row found for user");
+    return { ...local, isPremium: false };
+  }
+
   const profile = {
     coName: data.company_name || "",
     coAbn: data.abn || "",
     coAddr: data.address || "",
     coPhone: data.phone || "",
-    isPremium: data.is_premium === true, // strict check
+    isPremium: data.is_premium === true,
   };
   const fromParts = [profile.coName, profile.coAbn ? "ABN: " + profile.coAbn : "", profile.coAddr, profile.coPhone].filter(Boolean);
   profile.from = fromParts.join("\n");
   profile.abnS = profile.coAbn;
-  const local = loadProfile();
   if (local.logo) profile.logo = local.logo;
   console.log("Profile loaded — is_premium:", data.is_premium, "isPremium:", profile.isPremium);
   return profile;
+}
+
+// Separate function to just check premium status — works even without a full profile row
+async function dbCheckIsPremium() {
+  const userId = await getUserId();
+  if (!userId) return false;
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_premium")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.is_premium === true;
 }
 
 async function dbSaveProfile(profileData) {
@@ -317,9 +338,9 @@ export default function App({ user }) {
     async function init() {
       setLoading(true);
       try {
-        const [docs, profile] = await Promise.all([dbLoadDocuments(), dbLoadProfile()]);
+        const [docs, profile, premiumStatus] = await Promise.all([dbLoadDocuments(), dbLoadProfile(), dbCheckIsPremium()]);
         setSaved(docs);
-        if (profile.isPremium) setIsPremium(true);
+        setIsPremium(profile.isPremium || premiumStatus);
         if (profile.coName || profile.coAbn || profile.coAddr || profile.coPhone) {
           setDoc(d => ({ ...d, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: profile.from || "", abnS: profile.abnS || "" }));
         }
