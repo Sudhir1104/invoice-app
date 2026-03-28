@@ -650,6 +650,11 @@ export default function App({ user }) {
           input[type="date"] {
             text-align: left !important;
             padding-left: 4px !important;
+            display: block !important;
+            width: 100% !important;
+          }
+          .meta-grid > div:first-child input {
+            text-align: left !important;
           }
 
           /* Hide "assigned on save" text on mobile */
