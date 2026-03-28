@@ -122,14 +122,27 @@ async function dbSaveClient(toAddress, abnValue) {
 }
 
 async function dbLoadProfile() {
-  const { data, error } = await supabase.from("profiles").select("*").single();
+  const userId = await getUserId();
+  if (!userId) return loadProfile();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
   if (error || !data) return loadProfile();
-  const profile = { coName: data.company_name || "", coAbn: data.abn || "", coAddr: data.address || "", coPhone: data.phone || "", isPremium: data.is_premium || false };
+  const profile = {
+    coName: data.company_name || "",
+    coAbn: data.abn || "",
+    coAddr: data.address || "",
+    coPhone: data.phone || "",
+    isPremium: data.is_premium === true, // strict check
+  };
   const fromParts = [profile.coName, profile.coAbn ? "ABN: " + profile.coAbn : "", profile.coAddr, profile.coPhone].filter(Boolean);
   profile.from = fromParts.join("\n");
   profile.abnS = profile.coAbn;
   const local = loadProfile();
   if (local.logo) profile.logo = local.logo;
+  console.log("Profile loaded — is_premium:", data.is_premium, "isPremium:", profile.isPremium);
   return profile;
 }
 
