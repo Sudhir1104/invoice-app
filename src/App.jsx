@@ -523,56 +523,66 @@ export default function App({ user }) {
         /* ── Mobile responsive ── */
         @media (max-width: 600px) {
           #invoice-paper {
-            padding: 14px 10px !important;
+            padding: 12px 8px !important;
             border-left-width: 4px !important;
             overflow-x: hidden !important;
           }
 
-          /* Toolbar — stack vertically on mobile */
+          /* Beta banner — single line */
+          .beta-banner {
+            font-size: 9px !important;
+            padding: 5px 8px !important;
+            line-height: 1.4 !important;
+            letter-spacing: 0 !important;
+          }
+
+          /* Toolbar — compact on mobile */
           .mobile-toolbar {
             flex-direction: column !important;
             align-items: stretch !important;
-            gap: 8px !important;
-            padding: 10px !important;
-          }
-          .mobile-toolbar-row {
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            width: 100% !important;
-          }
-          .mobile-action-btns {
-            display: flex !important;
             gap: 6px !important;
-            width: 100% !important;
-          }
-          .mobile-action-btns button {
-            flex: 1 !important;
-            padding: 10px 4px !important;
-            font-size: 12px !important;
+            padding: 8px 10px !important;
           }
 
-          /* Invoice header — stack logo and company */
+          /* Invoice header — logo small, company left aligned */
           .invoice-header {
-            flex-direction: column !important;
+            flex-direction: row !important;
             align-items: flex-start !important;
             gap: 10px !important;
+            margin-bottom: 10px !important;
+          }
+          .invoice-header label {
+            width: 70px !important;
+            height: 50px !important;
+            flex-shrink: 0 !important;
           }
           .invoice-header > div:last-child {
             text-align: left !important;
             width: 100% !important;
+            flex: 1 !important;
           }
           .invoice-header > div:last-child input {
             text-align: left !important;
+            font-size: 11px !important;
+          }
+          .invoice-header > div:last-child input:first-child {
+            font-size: 14px !important;
           }
 
-          /* Meta row — stack date, order, number vertically */
+          /* Meta grid — date full width, order+number side by side */
           .meta-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: 1fr 1fr !important;
           }
-          .meta-grid > div {
+          .meta-grid > div:first-child {
+            grid-column: 1 / -1 !important;
             border-right: none !important;
-            border-bottom: 1.5px solid var(--ink-color, #2D2D7A) !important;
+            border-bottom: 1.5px solid #2D2D7A !important;
+          }
+          .meta-grid > div:nth-child(2) {
+            border-right: 1.5px solid #2D2D7A !important;
+          }
+          .meta-grid > div:nth-child(3) {
+            border-right: none !important;
           }
 
           /* From/To — stack vertically */
@@ -581,7 +591,7 @@ export default function App({ user }) {
           }
           .from-to-grid > div:first-child {
             border-right: none !important;
-            border-bottom: 1.5px solid var(--ink-color, #2D2D7A) !important;
+            border-bottom: 1.5px solid #2D2D7A !important;
           }
 
           /* ABN row — stack vertically */
@@ -593,24 +603,23 @@ export default function App({ user }) {
             border-bottom: 1px solid #C8C8E8 !important;
           }
 
-          /* Table — make it scrollable */
+          /* Table — scrollable */
           .invoice-table-wrap {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch !important;
           }
           .invoice-table-wrap table {
-            min-width: 480px !important;
+            min-width: 460px !important;
           }
 
-          /* Totals — full width */
-          .totals-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* Payment pills */
+          /* Payment pills — compact */
           .payment-row {
-            flex-wrap: wrap !important;
             gap: 6px !important;
+            padding: 0 10px 8px !important;
+          }
+          .payment-row button {
+            padding: 4px 10px !important;
+            font-size: 10px !important;
           }
 
           /* Share bar */
@@ -618,25 +627,43 @@ export default function App({ user }) {
             flex-direction: column !important;
             gap: 8px !important;
           }
-          .share-bar button {
+          .share-bar button, .share-bar a {
             width: 100% !important;
-          }
-
-          /* Beta banner */
-          .beta-banner {
-            font-size: 10px !important;
-            padding: 8px !important;
-            line-height: 1.6 !important;
+            justify-content: center !important;
           }
 
           /* Invoice title */
           .invoice-title {
-            font-size: 18px !important;
+            font-size: 17px !important;
+            padding: 6px 8px !important;
           }
 
-          /* Hide GST NZ field on mobile to save space */
-          .nz-only {
-            display: none !important;
+          /* Date input left align */
+          input[type="date"] {
+            text-align: left !important;
+          }
+
+          /* Hide NZ GST on mobile */
+          .nz-only { display: none !important; }
+
+          /* Mode toggle full width */
+          .mode-toggle {
+            width: 100% !important;
+          }
+          .mode-toggle button {
+            flex: 1 !important;
+          }
+
+          /* Action buttons full width row */
+          .action-btns {
+            width: 100% !important;
+            display: flex !important;
+            gap: 6px !important;
+          }
+          .action-btns button {
+            flex: 1 !important;
+            padding: 9px 4px !important;
+            font-size: 12px !important;
           }
         }
 
@@ -730,12 +757,12 @@ export default function App({ user }) {
             </div>
           )}
         </div>
-        <div style={{ display: "flex", background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: 3, gap: 2 }}>
+        <div className="mode-toggle" style={{ display: "flex", background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: 3, gap: 2 }}>
           {["invoice", "quote"].map(m => (
             <button key={m} onClick={() => setMode(m)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", background: mode === m ? (m === "quote" ? "#2E7D52" : "#2D2D7A") : "transparent", color: mode === m ? "#fff" : "rgba(255,255,255,0.5)", transition: "all 0.2s" }}>{m.toUpperCase()}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="action-btns" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={S.btn("#2D2D7A")} onClick={newDoc}>+ New</button>
           <button style={{ ...S.btn("#2E7D32"), opacity: loading ? 0.6 : 1 }} onClick={saveDoc} disabled={loading}>{loading ? "Saving..." : "Save"}</button>
           <button style={S.btn("#C0392B")} onClick={handlePrint}>Print / PDF</button>
