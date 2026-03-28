@@ -133,6 +133,22 @@ export default function Admin({ user, onBack }) {
     }
   };
 
+  const deleteUser = async (userId, email) => {
+    if (!window.confirm("Permanently delete " + email + "?\n\nThis will remove ALL their data including invoices, clients and their account. This cannot be undone.")) return;
+    setToggling(userId);
+    try {
+      const { error } = await supabase.rpc("delete_user_completely", { target_user_id: userId });
+      if (error) throw error;
+      setUsers(u => u.filter(p => p.user_id !== userId));
+      showToast("✓ User " + email + " deleted");
+    } catch (e) {
+      console.error("Delete user error:", e);
+      showToast("Failed to delete user — " + e.message);
+    } finally {
+      setToggling(null);
+    }
+  };
+
   const filtered = users.filter(u =>
     !search ||
     (u.company_name || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -253,8 +269,8 @@ export default function Admin({ user, onBack }) {
                     )}
                   </div>
 
-                  {/* Toggle button */}
-                  <div>
+                  {/* Toggle + Delete buttons */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <button
                       onClick={() => togglePremium(u.user_id, u.is_premium)}
                       disabled={toggling === u.user_id || u.deleted}
@@ -266,6 +282,18 @@ export default function Admin({ user, onBack }) {
                         opacity: toggling === u.user_id ? 0.6 : 1, whiteSpace: "nowrap"
                       }}>
                       {toggling === u.user_id ? "..." : u.is_premium ? "↓ To Trial" : "↑ To Premium"}
+                    </button>
+                    <button
+                      onClick={() => deleteUser(u.user_id, u.email || u.user_id)}
+                      disabled={toggling === u.user_id}
+                      style={{
+                        padding: "5px 12px", borderRadius: 6, border: "1px solid " + RED,
+                        background: "transparent", color: RED,
+                        fontFamily: "monospace", fontSize: 10, fontWeight: 700,
+                        cursor: "pointer", opacity: toggling === u.user_id ? 0.6 : 1,
+                        whiteSpace: "nowrap"
+                      }}>
+                      🗑 Delete User
                     </button>
                   </div>
                 </div>
