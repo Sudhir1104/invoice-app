@@ -138,10 +138,12 @@ async function dbSaveProfile(profileData) {
   if (!userId) return;
   saveProfile(profileData);
   const { data: { user: authUser } } = await supabase.auth.getUser();
-  const row = { user_id: userId, company_name: profileData.coName || "", abn: profileData.coAbn || "", address: profileData.coAddr || "", phone: profileData.coPhone || "", email: authUser?.email || "" };
+  // IMPORTANT: never include is_premium in update — only admin can change that
+  const updateRow = { company_name: profileData.coName || "", abn: profileData.coAbn || "", address: profileData.coAddr || "", phone: profileData.coPhone || "", email: authUser?.email || "" };
+  const insertRow = { user_id: userId, ...updateRow };
   const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", userId).single();
-  if (existing) { await supabase.from("profiles").update(row).eq("user_id", userId); }
-  else { await supabase.from("profiles").insert(row); }
+  if (existing) { await supabase.from("profiles").update(updateRow).eq("user_id", userId); }
+  else { await supabase.from("profiles").insert(insertRow); }
 }
 
 function dbRowToDoc(row) {
