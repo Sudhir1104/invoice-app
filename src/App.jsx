@@ -517,7 +517,129 @@ export default function App({ user }) {
   return (
     <div style={S.body}>
       <style>{`
+        * { box-sizing: border-box; }
         textarea { scrollbar-width: none; -ms-overflow-style: none; } textarea::-webkit-scrollbar { display: none; }
+
+        /* ── Mobile responsive ── */
+        @media (max-width: 600px) {
+          #invoice-paper {
+            padding: 14px 10px !important;
+            border-left-width: 4px !important;
+            overflow-x: hidden !important;
+          }
+
+          /* Toolbar — stack vertically on mobile */
+          .mobile-toolbar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+            padding: 10px !important;
+          }
+          .mobile-toolbar-row {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
+          .mobile-action-btns {
+            display: flex !important;
+            gap: 6px !important;
+            width: 100% !important;
+          }
+          .mobile-action-btns button {
+            flex: 1 !important;
+            padding: 10px 4px !important;
+            font-size: 12px !important;
+          }
+
+          /* Invoice header — stack logo and company */
+          .invoice-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+          }
+          .invoice-header > div:last-child {
+            text-align: left !important;
+            width: 100% !important;
+          }
+          .invoice-header > div:last-child input {
+            text-align: left !important;
+          }
+
+          /* Meta row — stack date, order, number vertically */
+          .meta-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .meta-grid > div {
+            border-right: none !important;
+            border-bottom: 1.5px solid var(--ink-color, #2D2D7A) !important;
+          }
+
+          /* From/To — stack vertically */
+          .from-to-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .from-to-grid > div:first-child {
+            border-right: none !important;
+            border-bottom: 1.5px solid var(--ink-color, #2D2D7A) !important;
+          }
+
+          /* ABN row — stack vertically */
+          .abn-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .abn-grid > div:first-child {
+            border-right: none !important;
+            border-bottom: 1px solid #C8C8E8 !important;
+          }
+
+          /* Table — make it scrollable */
+          .invoice-table-wrap {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .invoice-table-wrap table {
+            min-width: 480px !important;
+          }
+
+          /* Totals — full width */
+          .totals-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* Payment pills */
+          .payment-row {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+          }
+
+          /* Share bar */
+          .share-bar {
+            flex-direction: column !important;
+            gap: 8px !important;
+          }
+          .share-bar button {
+            width: 100% !important;
+          }
+
+          /* Beta banner */
+          .beta-banner {
+            font-size: 10px !important;
+            padding: 8px !important;
+            line-height: 1.6 !important;
+          }
+
+          /* Invoice title */
+          .invoice-title {
+            font-size: 18px !important;
+          }
+
+          /* Hide GST NZ field on mobile to save space */
+          .nz-only {
+            display: none !important;
+          }
+        }
+
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           body { margin: 0 !important; padding: 0 !important; background: white !important; }
@@ -581,7 +703,7 @@ export default function App({ user }) {
         </div>
       )}
 
-      <div className="no-print" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
+      <div className="no-print beta-banner" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
         BETA VERSION - Your feedback helps us improve!
         <a href="https://tally.so/r/jaLXDJ" target="_blank" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 8 }}>Give Feedback</a>
         <span style={{ margin: "0 8px" }}>|</span> invoice.bluesquaresolutions.com.au
@@ -598,7 +720,7 @@ export default function App({ user }) {
         </div>
       )}
 
-      <div className="no-print" style={S.toolbar}>
+      <div className="no-print mobile-toolbar" style={S.toolbar}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>Blue Square Invoice</span>
           {user && (
@@ -620,7 +742,7 @@ export default function App({ user }) {
         </div>
       </div>
 
-      <div className="no-print" style={{ width: "100%", maxWidth: 820, display: "flex", alignItems: "center", gap: 10, padding: "0 0 10px", flexWrap: "wrap" }}>
+      <div className="no-print payment-row" style={{ width: "100%", maxWidth: 820, display: "flex", alignItems: "center", gap: 10, padding: "0 0 10px", flexWrap: "wrap" }}>
         <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", letterSpacing: 1, textTransform: "uppercase" }}>Payment:</span>
         {pill("unpaid", "Unpaid", "#FEF3C7", "#92400E", "#F59E0B")}
         {pill("paid", "Paid", "#D1FAE5", "#065F46", "#10B981")}
@@ -663,9 +785,9 @@ export default function App({ user }) {
 
       <div id="invoice-paper" style={S.paper}>
         <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: 1.5, color: isQuote ? "#7AB898" : "#8888CC", textTransform: "uppercase", marginBottom: 6 }}>{isQuote ? "Original Copy - Quote" : "Original Copy"}</div>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: 26, color: ink, textAlign: "center", letterSpacing: 1, border: "2px solid " + ink, padding: "8px 16px", marginBottom: 16 }}>{isQuote ? "Quote / Estimate" : "Tax Invoice / Statement"}</div>
+        <div className="invoice-title" style={{ fontFamily: "Georgia, serif", fontSize: 26, color: ink, textAlign: "center", letterSpacing: 1, border: "2px solid " + ink, padding: "8px 16px", marginBottom: 16 }}>{isQuote ? "Quote / Estimate" : "Tax Invoice / Statement"}</div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 16 }}>
+        <div className="invoice-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 16 }}>
           <label style={{ width: 120, height: 70, border: "1.5px dashed #8888CC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 4, overflow: "hidden", flexShrink: 0, position: "relative" }}>
             {logoSrc ? <img src={logoSrc} alt="logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center", lineHeight: 1.5 }}>TAP TO<br />ADD LOGO</span>}
             <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
@@ -677,7 +799,7 @@ export default function App({ user }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", border: "1.5px solid " + ink }}>
+        <div className="meta-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", border: "1.5px solid " + ink }}>
           <div style={{ padding: "6px 10px", borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>Date</span>
             <input type="date" value={doc.date || ""} onChange={e => setDoc(d => ({ ...d, date: e.target.value }))} style={S.metaInput} />
@@ -695,7 +817,7 @@ export default function App({ user }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid " + ink, borderTop: "none" }}>
+        <div className="from-to-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid " + ink, borderTop: "none" }}>
           <div style={{ padding: "8px 10px", minHeight: 80, borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>From</span>
             <AutoTextarea value={doc.from || ""} onChange={e => setDoc(d => ({ ...d, from: e.target.value }))} placeholder={"Your name / business\nStreet address\nCity, State, Postcode"} style={S.textarea} />
@@ -705,7 +827,7 @@ export default function App({ user }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid " + ink, borderTop: "none" }}>
+        <div className="from-to-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "1.5px solid " + ink, borderTop: "none" }}>
           {[["ABN (Supplier):", "abnS", "XX XXX XXX XXX"], ["ABN (Recipient):", "abnR", "XX XXX XXX XXX"]].map(([lbl, field, ph], i) => (
             <div key={lbl} style={{ padding: "5px 10px", borderRight: i === 0 ? "1.5px solid " + ink : "none", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ ...S.label, marginBottom: 0, whiteSpace: "nowrap" }}>{lbl}</span>
@@ -720,7 +842,7 @@ export default function App({ user }) {
           <span style={{ fontFamily: "monospace", fontSize: 11, color: "#8888CC", fontStyle: "italic" }}>(New Zealand Only)</span>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", border: "1.5px solid " + ink }}>
+        <div className="invoice-table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", border: "1.5px solid " + ink }}>
           <thead>
             <tr>{[["QTY", "60px"], ["Description", "auto"], ["Each $", "90px"], ["GST 10%", "80px"], ["Total $", "100px"], ["", "32px"]].map(([h, w]) => <th key={h} style={{ ...S.th, width: w, textAlign: h === "Description" ? "left" : "center" }}>{h}</th>)}</tr>
           </thead>
@@ -737,7 +859,7 @@ export default function App({ user }) {
             ))}
           </tbody>
         </table>
-        <button className="add-row-btn" onClick={addRow} style={{ width: "100%", border: "1px dashed " + (isQuote ? "#7AB898" : "#8888CC"), borderTop: "none", background: "transparent", color: isQuote ? "#7AB898" : "#8888CC", fontFamily: "monospace", fontSize: 12, letterSpacing: 1, padding: 6, cursor: "pointer" }}>+ ADD LINE ITEM</button>
+        </div><button className="add-row-btn" onClick={addRow} style={{ width: "100%", border: "1px dashed " + (isQuote ? "#7AB898" : "#8888CC"), borderTop: "none", background: "transparent", color: isQuote ? "#7AB898" : "#8888CC", fontFamily: "monospace", fontSize: 12, letterSpacing: 1, padding: 6, cursor: "pointer" }}>+ ADD LINE ITEM</button>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", border: "1.5px solid " + ink, borderTop: "1.5px solid " + ink }}>
           <div style={{ padding: 10, borderRight: "1.5px solid " + ink, display: "flex", flexDirection: "column", gap: 6 }}>
