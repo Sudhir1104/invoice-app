@@ -55,6 +55,32 @@ async function getUserId() {
   return user?.id;
 }
 
+// Dedicated premium status — uses separate user_settings table
+async function dbGetIsPremium() {
+  const userId = await getUserId();
+  if (!userId) return false;
+  const { data } = await supabase
+    .from("user_settings")
+    .select("is_premium")
+    .eq("user_id", userId)
+    .maybeSingle();
+  console.log("Premium check from user_settings:", data?.is_premium);
+  return data?.is_premium === true;
+}
+
+async function dbEnsureUserSettings() {
+  const userId = await getUserId();
+  if (!userId) return;
+  const { data } = await supabase
+    .from("user_settings")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data) {
+    await supabase.from("user_settings").insert({ user_id: userId, is_premium: false });
+  }
+}
+
 async function dbLoadDocuments() {
   const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
   if (error) { console.error("Load documents error:", error); return []; }
@@ -155,17 +181,7 @@ async function dbLoadProfile() {
   return profile;
 }
 
-// Separate function to just check premium status — works even without a full profile row
-async function dbCheckIsPremium() {
-  const userId = await getUserId();
-  if (!userId) return false;
-  const { data } = await supabase
-    .from("profiles")
-    .select("is_premium")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return data?.is_premium === true;
-}
+
 
 async function dbSaveProfile(profileData) {
   const userId = await getUserId();
@@ -338,9 +354,11 @@ export default function App({ user }) {
     async function init() {
       setLoading(true);
       try {
-        const [docs, profile, premiumStatus] = await Promise.all([dbLoadDocuments(), dbLoadProfile(), dbCheckIsPremium()]);
+        const [docs, profile, premiumStatus] = await Promise.all([dbLoadDocuments(), dbLoadProfile(), dbGetIsPremium()]);
         setSaved(docs);
-        setIsPremium(profile.isPremium || premiumStatus);
+        setIsPremium(premiumStatus); // always trust user_settings table
+        // Also ensure user_settings row exists
+        dbEnsureUserSettings();
         if (profile.coName || profile.coAbn || profile.coAddr || profile.coPhone) {
           setDoc(d => ({ ...d, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: profile.from || "", abnS: profile.abnS || "" }));
         }

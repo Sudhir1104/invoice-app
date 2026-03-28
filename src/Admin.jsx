@@ -38,6 +38,13 @@ export default function Admin({ user, onBack }) {
         .from("profiles")
         .select("*");
 
+      // Load user_settings for premium status
+      const { data: settings } = await supabase
+        .from("user_settings")
+        .select("user_id, is_premium");
+      const settingsMap = {};
+      (settings || []).forEach(s => { settingsMap[s.user_id] = s.is_premium; });
+
       // Load all counters (one row per user = one registered user)
       const { data: counters } = await supabase
         .from("counters")
@@ -70,7 +77,7 @@ export default function Admin({ user, onBack }) {
           abn: profile.abn || "",
           phone: profile.phone || "",
           email: profile.email || "",
-          is_premium: profile.is_premium || false,
+          is_premium: settingsMap[uid] !== undefined ? settingsMap[uid] : (profile.is_premium || false),
           deleted: profile.deleted || false,
           deleted_at: profile.deleted_at || null,
           docCount: docCounts[uid] || 0,
@@ -93,16 +100,30 @@ export default function Admin({ user, onBack }) {
   const togglePremium = async (userId, currentValue) => {
     setToggling(userId);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_premium: !currentValue })
-        .eq("user_id", userId);
-      if (error) throw error;
+      // Check if user_settings row exists
+      const { data: existing } = await supabase
+        .from("user_settings")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("user_settings")
+          .update({ is_premium: !currentValue })
+          .eq("user_id", userId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("user_settings")
+          .insert({ user_id: userId, is_premium: !currentValue });
+        if (error) throw error;
+      }
       setUsers(u => u.map(p => p.user_id === userId ? { ...p, is_premium: !currentValue } : p));
-      showToast(!currentValue ? "✓ Upgraded to Premium" : "Downgraded to Trial");
+      showToast(!currentValue ? "✓ Upgraded to Premium" : "↓ Downgraded to Trial");
     } catch (e) {
       console.error("Toggle error:", e);
-      showToast("Failed to update user");
+      showToast("Failed to update — " + e.message);
     } finally {
       setToggling(null);
     }
