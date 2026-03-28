@@ -41,9 +41,13 @@ export default function Admin({ user, onBack }) {
       // Load user_settings for premium status
       const { data: settings } = await supabase
         .from("user_settings")
-        .select("user_id, is_premium");
+        .select("user_id, is_premium, email");
       const settingsMap = {};
-      (settings || []).forEach(s => { settingsMap[s.user_id] = s.is_premium; });
+      const emailMap = {};
+      (settings || []).forEach(s => { 
+        settingsMap[s.user_id] = s.is_premium;
+        if (s.email) emailMap[s.user_id] = s.email;
+      });
 
       // Load all counters (one row per user = one registered user)
       const { data: counters } = await supabase
@@ -76,7 +80,7 @@ export default function Admin({ user, onBack }) {
           company_name: profile.company_name || "",
           abn: profile.abn || "",
           phone: profile.phone || "",
-          email: profile.email || "",
+          email: emailMap[uid] || profile.email || "",
           is_premium: settingsMap[uid] !== undefined ? settingsMap[uid] : (profile.is_premium || false),
           deleted: profile.deleted || false,
           deleted_at: profile.deleted_at || null,
@@ -185,7 +189,7 @@ export default function Admin({ user, onBack }) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by company name or user ID..."
+            placeholder="Search by email or company name..."
             style={{ flex: 1, padding: "9px 14px", border: "1.5px solid #C8C0A0", borderRadius: 8, fontFamily: "monospace", fontSize: 12, outline: "none", background: "#fff" }}
           />
           <button onClick={loadUsers} style={{ padding: "9px 16px", borderRadius: 8, background: NAVY, color: "#fff", border: "none", fontFamily: "monospace", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -200,7 +204,7 @@ export default function Admin({ user, onBack }) {
           <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #C8C0A0", overflow: "hidden" }}>
             {/* Table header */}
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", background: NAVY, padding: "10px 16px", gap: 8 }}>
-              {["Company / User", "Documents", "Status", "Deleted", "Action"].map(h => (
+              {["Email / Company", "Documents", "Status", "Deleted", "Action"].map(h => (
                 <div key={h} style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, color: "#fff", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
               ))}
             </div>
@@ -210,12 +214,14 @@ export default function Admin({ user, onBack }) {
             ) : (
               filtered.map((u, i) => (
                 <div key={u.user_id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", padding: "12px 16px", gap: 8, alignItems: "center", borderBottom: i < filtered.length - 1 ? "1px solid #f0f0f0" : "none", background: i % 2 === 0 ? "#fff" : "#FAFAF8" }}>
-                  {/* Company / User ID */}
+                  {/* Company / User */}
                   <div>
-                    <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: NAVY }}>{u.company_name || "—"}</div>
-                    {u.email && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#2D2D7A", marginTop: 2 }}>{u.email}</div>}
-                    {u.phone && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#888" }}>{u.phone}</div>}
-                    <div style={{ fontFamily: "monospace", fontSize: 9, color: "#ccc", marginTop: 1 }}>{u.user_id?.slice(0, 18)}...</div>
+                    {u.email
+                      ? <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: NAVY }}>{u.email}</div>
+                      : <div style={{ fontFamily: "monospace", fontSize: 11, color: "#bbb", fontStyle: "italic" }}>No email yet</div>
+                    }
+                    {u.company_name && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#888", marginTop: 2 }}>{u.company_name}</div>}
+                    {u.phone && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#aaa" }}>{u.phone}</div>}
                   </div>
 
                   {/* Doc count */}
