@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabase";
 
 const GST_RATE = 0.10;
 const STORAGE_KEY = "invoice_app_data";
@@ -273,7 +274,7 @@ function Toast({ msg }) {
   );
 }
 
-export default function App() {
+export default function App({ user }) {
   const [doc, setDoc] = useState(emptyDoc("invoice"));
   const [docId, setDocId] = useState(null);
   const [mode, setModeState] = useState("invoice");
@@ -312,6 +313,11 @@ export default function App() {
   }, []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+
+  const signOut = async () => {
+    if (!window.confirm("Sign out?")) return;
+    await supabase.auth.signOut();
+  };
   const setMode = (m) => { setModeState(m); setDoc(d => ({ ...d, docType: m })); };
 
   // Auto-populate From address and ABN Supplier from company details
@@ -534,7 +540,19 @@ export default function App() {
       </div>
 
       <div className="no-print" style={S.toolbar}>
-        <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>📋 Receipt Book</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>📋 Blue Square Invoice</span>
+          {user && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user.email}
+              </span>
+              <button onClick={signOut} style={{ fontFamily: "monospace", fontSize: 11, color: "#C0392B", background: "none", border: "1px solid #C0392B", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", background: "rgba(0,0,0,0.15)", borderRadius: 10, padding: 3, gap: 2 }}>
           {["invoice", "quote"].map(m => (
             <button key={m} onClick={() => setMode(m)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", background: mode === m ? (m === "quote" ? "#2E7D52" : "#2D2D7A") : "transparent", color: mode === m ? "#fff" : "rgba(255,255,255,0.5)", transition: "all 0.2s" }}>
