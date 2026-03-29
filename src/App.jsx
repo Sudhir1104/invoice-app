@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const GST_RATE = 0.10;
 const PROFILE_KEY = "invoice_app_profile";
@@ -477,14 +479,54 @@ export default function App({ user }) {
     setDocId(null); showToast("Converting to Invoice..."); setTimeout(saveDoc, 100);
   };
 
-  const handlePrint = () => {
+  const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  const generatePDF = async () => {
+    const element = document.getElementById("invoice-paper");
+    if (!element) return;
+    showToast("⏳ Generating PDF...");
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
+
+      const clientName = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
+      const docNum = (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + (doc.number || "NEW");
+      const fileName = clientName + " " + docNum + ".pdf";
+      pdf.save(fileName);
+      showToast("✓ PDF downloaded!");
+    } catch (e) {
+      console.error("PDF generation error:", e);
+      showToast("❌ PDF failed — try Print instead");
+    }
+  };
+
+  const handlePrint = async () => {
+    // Save first if not yet saved
     if (!doc.number) {
-      saveDoc();
-      setTimeout(() => { const cn = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice"; document.title = cn; window.print(); setTimeout(() => { document.title = "Invoice App"; }, 3000); }, 800);
+      await saveDoc();
+      await new Promise(r => setTimeout(r, 600));
+    }
+    if (isMobile()) {
+      // Mobile — use jsPDF + html2canvas
+      await generatePDF();
     } else {
+      // Desktop — use browser print dialog
       const cn = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
-      document.title = cn + " " + (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number;
-      window.print(); setTimeout(() => { document.title = "Invoice App"; }, 3000);
+      document.title = cn + " " + (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + (doc.number || "NEW");
+      window.print();
+      setTimeout(() => { document.title = "Invoice App"; }, 3000);
     }
   };
 
@@ -854,7 +896,7 @@ export default function App({ user }) {
         <div className="meta-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", border: "1.5px solid " + ink }}>
           <div style={{ padding: "6px 10px", borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>Date</span>
-            <input type="date" value={doc.date || ""} onChange={e => setDoc(d => ({ ...d, date: e.target.value }))} style={S.metaInput} />
+            <input type="date" value={doc.date || ""} onChange={e => setDoc(d => ({ ...d, date: e.target.value }))} style={{ ...S.metaInput, textAlign: "left", WebkitTextAlign: "left" }} />
           </div>
           <div style={{ padding: "6px 10px", borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>Order / PO Number</span>
