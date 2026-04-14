@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { useTenant } from "./TenantContext";
 
 const GST_RATE = 0.10;
 const PROFILE_KEY = "invoice_app_profile";
 const TC_KEY = "invoice_app_tc";
+const ADMIN_EMAILS = ["sudhir@bluesquaresolutions.com.au", "sudhir1104@gmail.com"];
 
 const DEFAULT_TC = `1. PAYMENT TERMS
 1.1 Payment is due within 30 days of the invoice date unless otherwise agreed in writing.
@@ -49,7 +49,7 @@ function loadProfile() { try { return JSON.parse(localStorage.getItem(PROFILE_KE
 function saveProfile(data) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(data)); } catch {} }
 
 // ══════════════════════════════════════════════
-// SUPABASE DATA LAYER
+// SUPABASE DATA LAYER — all queries use tenant_id
 // ══════════════════════════════════════════════
 
 async function getUserId() {
@@ -57,159 +57,214 @@ async function getUserId() {
   return user?.id;
 }
 
-// Dedicated premium status — uses separate user_settings table
-async function dbGetIsPremium() {
-  const userId = await getUserId();
-  if (!userId) return false;
+// Plan/premium check from tenants table (source of truth)
+async function dbGetTenantPlan(tenantId) {
+  if (!tenantId) return { plan: "trial", docLimit: 10 };
   const { data } = await supabase
-    .from("user_settings")
-    .select("is_premium")
-    .eq("user_id", userId)
+    .from("tenants")
+    .select("plan, doc_limit, is_active")
+    .eq("id", tenantId)
     .maybeSingle();
-  console.log("Premium check from user_settings:", data?.is_premium);
-  return data?.is_premium === true;
+  return {
+    plan: data?.plan || "trial",
+    docLimit: data?.doc_limit ?? 10,
+    isActive: data?.is_active ?? true,
+  };
 }
 
-async function dbEnsureUserSettings() {
-  const userId = await getUserId();
-  if (!userId) return;
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  const email = authUser?.email || "";
-  const { data } = await supabase
-    .from("user_settings")
-    .select("user_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data) {
-    await supabase.from("user_settings").insert({ user_id: userId, is_premium: false, email });
-  } else {
-    // Update email if not set
-    await supabase.from("user_settings").update({ email }).eq("user_id", userId);
-  }
-}
-
-async function dbLoadDocuments() {
-  const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false });
+// Load documents filtered by tenant_id
+async function dbLoadDocuments(tenantId) {
+  if (!tenantId) return [];
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false });
   if (error) { console.error("Load documents error:", error); return []; }
   return (data || []).map(dbRowToDoc);
 }
 
-async function dbSaveDocument(doc, payStatus, docId) {
+// Save/update document — always writes tenant_id and created_by
+async function dbSaveDocument(doc, payStatus, docId, tenantId) {
   const userId = await getUserId();
-  if (!userId) return null;
+  if (!userId || !tenantId) return null;
   const totals = calcTotals(doc.rows);
   const row = {
-    user_id: userId, doc_type: doc.docType || "invoice", date: doc.date || null,
-    order_ref: doc.order || "", from_address: doc.from || "", to_address: doc.to || "",
-    abn_supplier: doc.abnS || "", abn_recipient: doc.abnR || "", gst_no: doc.gstNo || "",
-    rows: doc.rows || [], pay_status: payStatus || "unpaid", converted: doc.convertedToInvoice || false,
-    subtotal: parseFloat(totals.subtotal) || 0, gst_total: parseFloat(totals.gstTotal) || 0, grand_total: parseFloat(totals.grandTotal) || 0,
+    tenant_id: tenantId,
+    created_by: userId,
+    doc_type: doc.docType || "invoice",
+    date: doc.date || null,
+    order_ref: doc.order || "",
+    from_address: doc.from || "",
+    to_address: doc.to || "",
+    abn_supplier: doc.abnS || "",
+    abn_recipient: doc.abnR || "",
+    gst_no: doc.gstNo || "",
+    rows: doc.rows || [],
+    pay_status: payStatus || "unpaid",
+    converted: doc.convertedToInvoice || false,
+    subtotal: parseFloat(totals.subtotal) || 0,
+    gst_total: parseFloat(totals.gstTotal) || 0,
+    grand_total: parseFloat(totals.grandTotal) || 0,
+    client_email: doc.clientEmail || "",
+    client_mobile: doc.clientMobile || "",
   };
   if (docId) {
-    const { data, error } = await supabase.from("documents").update(row).eq("id", docId).eq("user_id", userId).select().single();
+    const { data, error } = await supabase
+      .from("documents")
+      .update(row)
+      .eq("id", docId)
+      .eq("tenant_id", tenantId)
+      .select()
+      .single();
     if (error) { console.error("Update error:", error); return null; }
     return data;
   } else {
-    const { number, prefix } = await dbGetNextNumber(doc.docType || "invoice", userId);
-    const { data, error } = await supabase.from("documents").insert({ ...row, number, prefix }).select().single();
+    const { number, prefix } = await dbGetNextNumber(doc.docType || "invoice", tenantId);
+    const { data, error } = await supabase
+      .from("documents")
+      .insert({ ...row, number, prefix })
+      .select()
+      .single();
     if (error) { console.error("Insert error:", error); return null; }
     return data;
   }
 }
 
-async function dbDeleteDocument(id) {
-  const userId = await getUserId();
-  const { error } = await supabase.from("documents").delete().eq("id", id).eq("user_id", userId);
+async function dbDeleteDocument(id, tenantId) {
+  if (!tenantId) return;
+  const { error } = await supabase
+    .from("documents")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", tenantId);
   if (error) console.error("Delete error:", error);
 }
 
-async function dbGetNextNumber(type, userId) {
+// Counter is per-tenant (one row per tenant in counters table)
+async function dbGetNextNumber(type, tenantId) {
   const prefix = type === "quote" ? "QT" : "INV";
   const col = type === "quote" ? "quote_count" : "invoice_count";
-  const { data, error } = await supabase.from("counters").select("*").eq("user_id", userId).single();
+  const { data, error } = await supabase
+    .from("counters")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
   if (error || !data) {
-    await supabase.from("counters").insert({ user_id: userId, invoice_count: type === "invoice" ? 1 : 0, quote_count: type === "quote" ? 1 : 0 });
+    await supabase.from("counters").insert({
+      tenant_id: tenantId,
+      invoice_count: type === "invoice" ? 1 : 0,
+      quote_count: type === "quote" ? 1 : 0,
+    });
     return { number: "000001", prefix };
   }
   const next = (data[col] || 0) + 1;
-  await supabase.from("counters").update({ [col]: next }).eq("user_id", userId);
+  await supabase.from("counters").update({ [col]: next }).eq("tenant_id", tenantId);
   return { number: String(next).padStart(6, "0"), prefix };
 }
 
-async function dbLoadClients() {
-  const { data, error } = await supabase.from("clients").select("*").order("updated_at", { ascending: false });
+// Load clients filtered by tenant_id
+async function dbLoadClients(tenantId) {
+  if (!tenantId) return [];
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("updated_at", { ascending: false });
   if (error) { console.error("Load clients error:", error); return []; }
   return data || [];
 }
 
-async function dbSaveClient(toAddress, abnValue) {
-  if (!toAddress || toAddress.trim().length < 2) return;
+// Save client — uses tenant_id + created_by
+async function dbSaveClient(toAddress, abnValue, tenantId, emailValue, mobileValue) {
+  if (!toAddress || toAddress.trim().length < 2 || !tenantId) return;
   const name = toAddress.split("\n")[0].trim();
   if (!name) return;
   const userId = await getUserId();
   if (!userId) return;
-  const entry = { user_id: userId, name, address: toAddress, abn: abnValue || "", updated_at: new Date().toISOString() };
-  const { data: existing } = await supabase.from("clients").select("id").eq("user_id", userId).eq("name", name).single();
-  if (existing) { await supabase.from("clients").update(entry).eq("id", existing.id); }
-  else { await supabase.from("clients").insert(entry); }
+  const entry = { tenant_id: tenantId, created_by: userId, name, address: toAddress, abn: abnValue || "", email: emailValue || "", phone: mobileValue || "" };
+  try {
+    const { data: existing } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("name", name)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from("clients").update(entry).eq("id", existing.id);
+    } else {
+      await supabase.from("clients").insert(entry);
+    }
+  } catch (e) {
+    console.error("dbSaveClient exception:", e);
+  }
 }
 
-async function dbLoadProfile() {
-  const userId = await getUserId();
-  if (!userId) return loadProfile();
-
-  // Use maybeSingle() instead of single() to avoid 406 when no row exists
-  const { data, error } = await supabase
+// Profile is per-tenant (one row per tenant in profiles table)
+async function dbLoadProfile(tenantId) {
+  if (!tenantId) return loadProfile();
+  const { data } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", userId)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
-
   const local = loadProfile();
-
-  if (!data) {
-    // No profile row yet — return defaults with isPremium false
-    console.log("No profile row found for user");
-    return { ...local, isPremium: false };
-  }
-
+  if (!data) return { ...local };
   const profile = {
     coName: data.company_name || "",
     coAbn: data.abn || "",
     coAddr: data.address || "",
     coPhone: data.phone || "",
-    isPremium: data.is_premium === true,
   };
   const fromParts = [profile.coName, profile.coAbn ? "ABN: " + profile.coAbn : "", profile.coAddr, profile.coPhone].filter(Boolean);
   profile.from = fromParts.join("\n");
   profile.abnS = profile.coAbn;
   if (local.logo) profile.logo = local.logo;
-  console.log("Profile loaded — is_premium:", data.is_premium, "isPremium:", profile.isPremium);
   return profile;
 }
 
-
-
-async function dbSaveProfile(profileData) {
-  const userId = await getUserId();
-  if (!userId) return;
+async function dbSaveProfile(profileData, tenantId) {
+  if (!tenantId) return;
   saveProfile(profileData);
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  // IMPORTANT: never include is_premium in update — only admin can change that
-  const updateRow = { company_name: profileData.coName || "", abn: profileData.coAbn || "", address: profileData.coAddr || "", phone: profileData.coPhone || "", email: authUser?.email || "" };
-  const insertRow = { user_id: userId, ...updateRow };
-  const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", userId).single();
-  if (existing) { await supabase.from("profiles").update(updateRow).eq("user_id", userId); }
-  else { await supabase.from("profiles").insert(insertRow); }
+  const updateRow = {
+    company_name: profileData.coName || "",
+    abn: profileData.coAbn || "",
+    address: profileData.coAddr || "",
+    phone: profileData.coPhone || "",
+  };
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (existing) {
+    await supabase.from("profiles").update(updateRow).eq("tenant_id", tenantId);
+  } else {
+    await supabase.from("profiles").insert({ tenant_id: tenantId, ...updateRow });
+  }
 }
 
 function dbRowToDoc(row) {
   return {
-    id: row.id, docType: row.doc_type || "invoice", date: row.date || "", order: row.order_ref || "",
-    from: row.from_address || "", to: row.to_address || "", abnS: row.abn_supplier || "", abnR: row.abn_recipient || "",
-    gstNo: row.gst_no || "", coName: "", coAbn: "", coAddr: "", coPhone: "", rows: row.rows || [],
-    payStatus: row.pay_status || "unpaid", convertedToInvoice: row.converted || false,
-    number: row.number || "", prefix: row.prefix || "", grandTotal: row.grand_total ? String(row.grand_total) : "0.00", createdAt: row.created_at || "",
+    id: row.id,
+    docType: row.doc_type || "invoice",
+    date: row.date || "",
+    order: row.order_ref || "",
+    from: row.from_address || "",
+    to: row.to_address || "",
+    abnS: row.abn_supplier || "",
+    abnR: row.abn_recipient || "",
+    gstNo: row.gst_no || "",
+    clientEmail: row.client_email || "",
+    clientMobile: row.client_mobile || "",
+    coName: "", coAbn: "", coAddr: "", coPhone: "",
+    rows: row.rows || [],
+    payStatus: row.pay_status || "unpaid",
+    convertedToInvoice: row.converted || false,
+    number: row.number || "",
+    prefix: row.prefix || "",
+    grandTotal: row.grand_total ? String(row.grand_total) : "0.00",
+    createdAt: row.created_at || "",
   };
 }
 
@@ -217,25 +272,33 @@ function dbRowToDoc(row) {
 // HELPERS
 // ══════════════════════════════════════════════
 
-const emptyRow = () => ({ id: Math.random().toString(36).slice(2), qty: "", desc: "", each: "", gst: "", total: "" });
+const emptyRow = () => ({ id: Math.random().toString(36).slice(2), qty: "", desc: "", each: "", gst: "", total: "", gstApplied: true });
 const emptyDoc = (type = "invoice") => ({
   docType: type, date: new Date().toISOString().split("T")[0],
   order: "", from: "", to: "", abnS: "", abnR: "", gstNo: "",
+  clientEmail: "", clientMobile: "",
   coName: "", coAbn: "", coAddr: "", coPhone: "",
-  rows: Array.from({ length: 8 }, emptyRow), payStatus: "unpaid",
+  rows: Array.from({ length: 1 }, emptyRow), payStatus: "unpaid",
 });
 
 function calcRow(row) {
   const qty = parseFloat(row.qty) || 0; const each = parseFloat(row.each) || 0; const sub = qty * each;
   if (sub <= 0) return { ...row, gst: "", total: "" };
-  const gst = Math.round(sub * GST_RATE * 100) / 100; const total = Math.round((sub + gst) * 100) / 100;
-  return { ...row, gst: gst.toFixed(2), total: total.toFixed(2) };
+  const applyGst = row.gstApplied !== false; // default true
+  const gst = applyGst ? Math.round(sub * GST_RATE * 100) / 100 : 0;
+  const total = Math.round((sub + gst) * 100) / 100;
+  return { ...row, gst: applyGst ? gst.toFixed(2) : "0.00", total: total.toFixed(2) };
 }
 
 function calcTotals(rows) {
-  let sub = 0; rows.forEach(r => { sub += (parseFloat(r.qty) || 0) * (parseFloat(r.each) || 0); });
-  const gst = Math.round(sub * GST_RATE * 100) / 100; const grand = Math.round((sub + gst) * 100) / 100;
-  return { subtotal: sub.toFixed(2), gstTotal: gst.toFixed(2), grandTotal: grand.toFixed(2) };
+  let sub = 0; let gstTotal = 0;
+  rows.forEach(r => {
+    const qty = parseFloat(r.qty) || 0; const each = parseFloat(r.each) || 0; const rowSub = qty * each;
+    sub += rowSub;
+    if (r.gstApplied !== false) gstTotal += Math.round(rowSub * GST_RATE * 100) / 100;
+  });
+  const grand = Math.round((sub + gstTotal) * 100) / 100;
+  return { subtotal: sub.toFixed(2), gstTotal: gstTotal.toFixed(2), grandTotal: grand.toFixed(2) };
 }
 
 // ══════════════════════════════════════════════
@@ -250,49 +313,103 @@ function AutoTextarea({ value, onChange, placeholder, style }) {
   return <textarea ref={ref} value={value} onChange={onChange} placeholder={placeholder} style={{ ...style, overflow: "hidden", resize: "none", scrollbarWidth: "none", msOverflowStyle: "none" }} />;
 }
 
-function ClientSearch({ value, onChange, ink }) {
-  const [query, setQuery] = useState(""); const [results, setResults] = useState([]);
-  const [showList, setShowList] = useState(false); const [allClients, setAllClients] = useState([]);
+// ClientSearch — "To" box with saved client search + free-form address textarea
+function ClientSearch({ value, onChange, onBlurSave, ink, tenantId, onSelectClient, clientEmail, clientMobile, onEmailChange, onMobileChange }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [showList, setShowList] = useState(false);
+  const [allClients, setAllClients] = useState([]);
   const wrapRef = useRef(null);
-  useEffect(() => { if (showList) dbLoadClients().then(setAllClients); }, [showList]);
+
+  useEffect(() => { if (showList) dbLoadClients(tenantId).then(setAllClients); }, [showList, tenantId]);
   useEffect(() => {
     const handleClick = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowList(false); };
-    document.addEventListener("mousedown", handleClick); document.addEventListener("touchstart", handleClick);
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
     return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("touchstart", handleClick); };
   }, []);
-  const handleSearch = (e) => {
+
+  const handleClientSearch = (e) => {
     const q = e.target.value; setQuery(q);
-    setResults(q.length > 0 ? allClients.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || (c.address || "").toLowerCase().includes(q.toLowerCase())) : allClients);
+    setResults(q.length > 0
+      ? allClients.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || (c.address || "").toLowerCase().includes(q.toLowerCase()))
+      : allClients);
     setShowList(true);
   };
-  const selectClient = (client) => { onChange(client.address, client.abn); setShowList(false); setQuery(""); };
+
+  const selectClient = (client) => {
+    onChange(client.address, client.abn);
+    if (onSelectClient) onSelectClient(client);
+    setShowList(false); setQuery("");
+  };
+
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <div className="search-bar-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+
+      {/* ── Saved client search bar ── */}
+      <div className="search-bar-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, letterSpacing: 1, color: ink, textTransform: "uppercase" }}>To</span>
         <div style={{ flex: 1, display: "flex", gap: 4 }}>
-          <input value={query} onChange={handleSearch} onFocus={() => setShowList(true)} placeholder="Search saved clients..."
+          <input value={query} onChange={handleClientSearch} onFocus={() => setShowList(true)}
+            placeholder="Search saved clients..."
             style={{ flex: 1, border: "1px solid #C8C8E8", borderRadius: 4, padding: "3px 8px", fontFamily: "monospace", fontSize: 11, color: ink, outline: "none", background: "rgba(255,255,255,0.7)" }} />
-          {allClients.length > 0 && <span style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC", alignSelf: "center", whiteSpace: "nowrap" }}>{allClients.length} client{allClients.length !== 1 ? "s" : ""}</span>}
+          {allClients.length > 0 && <span style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC", alignSelf: "center", whiteSpace: "nowrap" }}>{allClients.length} saved</span>}
         </div>
       </div>
+
+      {/* ── Saved client dropdown ── */}
       {showList && results.length > 0 && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #C8C0A0", borderRadius: "0 0 8px 8px", boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000, maxHeight: 200, overflowY: "auto" }}>
+        <div style={{ position: "absolute", top: "28px", left: 0, right: 0, background: "#fff", border: "1px solid #C8C0A0", borderRadius: "0 0 8px 8px", boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000, maxHeight: 200, overflowY: "auto" }}>
           {results.map((client, i) => (
             <div key={i} onClick={() => selectClient(client)} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
               onMouseEnter={e => e.currentTarget.style.background = "#F5F0FF"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
-              <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: ink }}>{client.name}</div>
-              <div style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC" }}>{(client.address || "").split("\n").slice(1).join(", ")}</div>
+              <div style={{ fontFamily: "Lato, sans-serif", fontSize: 13, fontWeight: 700, color: ink }}>{client.name}</div>
+              <div style={{ fontFamily: "Lato, sans-serif", fontSize: 12, color: "#8888CC", lineHeight: 1.5 }}>{(client.address || "").split("\n").slice(1).join("\n")}</div>
               {client.abn && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#8888CC" }}>ABN: {client.abn}</div>}
             </div>
           ))}
         </div>
       )}
       {showList && query.length > 0 && results.length === 0 && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #C8C0A0", borderRadius: "0 0 8px 8px", padding: "12px", fontFamily: "monospace", fontSize: 11, color: "#8888CC", zIndex: 1000 }}>No clients found for "{query}"</div>
+        <div style={{ position: "absolute", top: "28px", left: 0, right: 0, background: "#fff", border: "1px solid #C8C0A0", borderRadius: "0 0 8px 8px", padding: "10px 12px", fontFamily: "monospace", fontSize: 11, color: "#8888CC", zIndex: 1000 }}>No matches for "{query}"</div>
       )}
-      <AutoTextarea value={value} onChange={e => onChange(e.target.value, null)} placeholder={"Client name / business\nStreet address\nCity, State, Postcode"}
-        style={{ border: "none", background: "transparent", fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, width: "100%", minHeight: 64, outline: "none", lineHeight: 1.6 }} />
+
+      {/* ── Free-form address textarea — matches From field exactly ── */}
+      <AutoTextarea
+        value={value}
+        onChange={e => onChange(e.target.value, null)}
+        onBlur={() => onBlurSave && onBlurSave()}
+        placeholder={"Client name / business\nStreet address\nSuburb  STATE  Postcode"}
+        style={{ border: "none", background: "transparent", fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, width: "100%", minHeight: 64, outline: "none", resize: "none", lineHeight: 1.6, overflow: "hidden", scrollbarWidth: "none" }}
+      />
+
+      {/* ── Email (mandatory — * hidden on print) ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+        <span style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, whiteSpace: "nowrap" }}>✉</span>
+        <input
+          type="email"
+          value={clientEmail || ""}
+          onChange={e => onEmailChange(e.target.value)}
+          onBlur={() => onBlurSave && onBlurSave()}
+          placeholder="Email *"
+          style={{ border: "none", background: "transparent", fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, width: "100%", outline: "none", lineHeight: 1.6 }}
+        />
+        <span className="mandatory-star no-print" style={{ color: "#C0392B", fontWeight: 700, fontSize: 13 }}>*</span>
+      </div>
+
+      {/* ── Mobile (mandatory — * hidden on print) ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+        <span style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, whiteSpace: "nowrap" }}>📱</span>
+        <input
+          type="tel"
+          value={clientMobile || ""}
+          onChange={e => onMobileChange(e.target.value)}
+          onBlur={() => onBlurSave && onBlurSave()}
+          placeholder="Mobile *"
+          style={{ border: "none", background: "transparent", fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, width: "100%", outline: "none", lineHeight: 1.6 }}
+        />
+        <span className="mandatory-star no-print" style={{ color: "#C0392B", fontWeight: 700, fontSize: 13 }}>*</span>
+      </div>
     </div>
   );
 }
@@ -330,7 +447,11 @@ function Toast({ msg }) {
 // MAIN APP
 // ══════════════════════════════════════════════
 
-export default function App({ user }) {
+export default function App({ user, onShowAdmin, onShowTeam }) {
+  // Pull tenant_id from TenantContext — this is the source of truth
+  const { tenant } = useTenant();
+  const tenantId = tenant?.id || null;
+
   const [doc, setDoc] = useState(emptyDoc("invoice"));
   const [docId, setDocId] = useState(null);
   const [mode, setModeState] = useState("invoice");
@@ -346,8 +467,11 @@ export default function App({ user }) {
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
-  const BETA_LIMIT = 10;
+  const [tenantPlan, setTenantPlan] = useState({ plan: "trial", docLimit: 10 });
+
+  const isAdmin = ADMIN_EMAILS.includes(user?.email);
+  const isPremium = isAdmin || tenantPlan.plan === "starter" || tenantPlan.plan === "growth" || tenantPlan.plan === "pro";
+  const docLimit = tenantPlan.docLimit ?? 10;
 
   const totals = calcTotals(doc.rows);
   const isQuote = mode === "quote";
@@ -358,14 +482,17 @@ export default function App({ user }) {
   const borderColor = isQuote ? "#90C8A0" : "#9999CC";
 
   useEffect(() => {
+    if (!tenantId) return;
     async function init() {
       setLoading(true);
       try {
-        const [docs, profile, premiumStatus] = await Promise.all([dbLoadDocuments(), dbLoadProfile(), dbGetIsPremium()]);
+        const [docs, profile, plan] = await Promise.all([
+          dbLoadDocuments(tenantId),
+          dbLoadProfile(tenantId),
+          dbGetTenantPlan(tenantId),
+        ]);
         setSaved(docs);
-        setIsPremium(premiumStatus); // always trust user_settings table
-        // Also ensure user_settings row exists
-        dbEnsureUserSettings();
+        setTenantPlan(plan);
         if (profile.coName || profile.coAbn || profile.coAddr || profile.coPhone) {
           setDoc(d => ({ ...d, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: profile.from || "", abnS: profile.abnS || "" }));
         }
@@ -374,9 +501,10 @@ export default function App({ user }) {
       finally { setLoading(false); }
     }
     init();
-  }, []);
+  }, [tenantId]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+
 
   const signOut = async () => {
     if (!window.confirm("Sign out?")) return;
@@ -391,12 +519,7 @@ export default function App({ user }) {
     setLoading(true);
     try {
       const userId = await getUserId();
-      const { data: existing } = await supabase.from("profiles").select("id").eq("user_id", userId).single();
-      if (existing) {
-        await supabase.from("profiles").update({ deleted: true, deleted_at: new Date().toISOString() }).eq("user_id", userId);
-      } else {
-        await supabase.from("profiles").insert({ user_id: userId, deleted: true, deleted_at: new Date().toISOString() });
-      }
+      await supabase.from("user_settings").update({ onboarded: false }).eq("user_id", userId);
       localStorage.removeItem(PROFILE_KEY);
       localStorage.removeItem(TC_KEY);
       await supabase.auth.signOut();
@@ -412,18 +535,22 @@ export default function App({ user }) {
   const updateCompany = (field, value) => {
     setDoc(d => {
       const updated = { ...d, [field]: value };
-      const name = field === "coName" ? value : d.coName || ""; const abn = field === "coAbn" ? value : d.coAbn || "";
-      const addr = field === "coAddr" ? value : d.coAddr || ""; const phone = field === "coPhone" ? value : d.coPhone || "";
+      const name = field === "coName" ? value : d.coName || "";
+      const abn = field === "coAbn" ? value : d.coAbn || "";
+      const addr = field === "coAddr" ? value : d.coAddr || "";
+      const phone = field === "coPhone" ? value : d.coPhone || "";
       updated.from = [name, abn ? "ABN: " + abn : "", addr, phone].filter(Boolean).join("\n");
       if (field === "coAbn") updated.abnS = value;
-      const profile = loadProfile(); profile[field] = value; profile.from = updated.from; profile.abnS = updated.abnS || profile.abnS || "";
-      dbSaveProfile(profile); return updated;
+      const profile = loadProfile();
+      profile[field] = value; profile.from = updated.from; profile.abnS = updated.abnS || profile.abnS || "";
+      dbSaveProfile(profile, tenantId);
+      return updated;
     });
   };
 
   const updateRow = (idx, field, val) => {
     setDoc(d => {
-      const rows = d.rows.map((r, i) => { if (i !== idx) return r; const updated = { ...r, [field]: val }; return (field === "qty" || field === "each") ? calcRow(updated) : updated; });
+      const rows = d.rows.map((r, i) => { if (i !== idx) return r; const updated = { ...r, [field]: val }; return (field === "qty" || field === "each" || field === "gstApplied") ? calcRow(updated) : updated; });
       return { ...d, rows };
     });
   };
@@ -441,18 +568,27 @@ export default function App({ user }) {
   };
 
   const saveDoc = async () => {
-    // Beta limit check — only applies to NEW documents, not updates, and not premium users
-    if (!docId && !isPremium && saved.length >= BETA_LIMIT) {
+    if (!docId && !isPremium && saved.length >= docLimit) {
       setShowLimitModal(true);
       return;
     }
+    // Mandatory field validation
+    if (!doc.clientEmail || !doc.clientEmail.trim()) {
+      showToast("⚠️ Client email is required"); return;
+    }
+    if (!doc.clientMobile || !doc.clientMobile.trim()) {
+      showToast("⚠️ Client mobile is required"); return;
+    }
     setLoading(true);
     try {
-      const result = await dbSaveDocument(doc, payStatus, docId);
+      const result = await dbSaveDocument(doc, payStatus, docId, tenantId);
       if (!result) { showToast("Save failed - check connection"); return; }
-      if (!docId) { setDocId(result.id); setDoc(d => ({ ...d, number: result.number, prefix: result.prefix, id: result.id })); }
-      await dbSaveClient(doc.to, doc.abnR);
-      const docs = await dbLoadDocuments(); setSaved(docs);
+      if (!docId) {
+        setDocId(result.id);
+        setDoc(d => ({ ...d, number: result.number, prefix: result.prefix, id: result.id }));
+      }
+      await dbSaveClient(doc.to, doc.abnR, tenantId, doc.clientEmail, doc.clientMobile);
+      const docs = await dbLoadDocuments(tenantId); setSaved(docs);
       showToast("Saved " + (result.prefix || (isQuote ? "QT" : "INV")) + "-" + (result.number || doc.number));
     } catch (e) { console.error("Save error:", e); showToast("Save failed"); }
     finally { setLoading(false); }
@@ -460,80 +596,74 @@ export default function App({ user }) {
 
   const loadDoc = (item) => {
     const profile = loadProfile();
-    setDoc({ ...emptyDoc(item.docType || "invoice"), ...item, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: item.from || profile.from || "", rows: item.rows?.length ? item.rows : Array.from({ length: 8 }, emptyRow) });
+    setDoc({ ...emptyDoc(item.docType || "invoice"), ...item, coName: profile.coName || "", coAbn: profile.coAbn || "", coAddr: profile.coAddr || "", coPhone: profile.coPhone || "", from: item.from || profile.from || "", rows: item.rows?.length ? item.rows : Array.from({ length: 1 }, emptyRow) });
     setModeState(item.docType || "invoice"); setDocId(item.id); setPayStatusState(item.payStatus || "unpaid");
     setDrawerOpen(false); showToast("Loaded " + (item.prefix || "INV") + "-" + (item.number || ""));
   };
 
   const deleteDoc = async (id, label) => {
-    if (!isPremium) { showToast("Upgrade to Premium to delete documents"); return; }
+    if (!isPremium) { showToast("Upgrade to delete documents"); return; }
     if (!window.confirm("Delete " + label + "?")) return;
-    await dbDeleteDocument(id); const docs = await dbLoadDocuments(); setSaved(docs);
-    if (docId === id) { setDoc(emptyDoc(mode)); setDocId(null); } showToast("Deleted");
+    await dbDeleteDocument(id, tenantId);
+    const docs = await dbLoadDocuments(tenantId); setSaved(docs);
+    if (docId === id) { setDoc(emptyDoc(mode)); setDocId(null); }
+    showToast("Deleted");
   };
 
   const convertToInvoice = async () => {
     if (!window.confirm("Convert this Quote to a Tax Invoice?")) return;
-    if (docId) { const userId = await getUserId(); await supabase.from("documents").update({ converted: true }).eq("id", docId).eq("user_id", userId); }
-    setModeState("invoice"); setDoc(d => ({ ...d, docType: "invoice", convertedToInvoice: true }));
-    setDocId(null); showToast("Converting to Invoice..."); setTimeout(saveDoc, 100);
-  };
-
-  const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  const generatePDF = async () => {
-    const element = document.getElementById("invoice-paper");
-    if (!element) return;
-    showToast("⏳ Generating PDF...");
+    setLoading(true);
     try {
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null,
-        logging: false,
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth;
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, Math.min(imgHeight, pageHeight));
-
-      const clientName = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
-      const docNum = (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + (doc.number || "NEW");
-      const fileName = clientName + " " + docNum + ".pdf";
-      pdf.save(fileName);
-      showToast("✓ PDF downloaded!");
+      if (docId) {
+        await supabase.from("documents").update({ converted: true }).eq("id", docId).eq("tenant_id", tenantId);
+      }
+      const newInvoiceDoc = { ...doc, docType: "invoice", convertedToInvoice: true, number: "", prefix: "" };
+      const result = await dbSaveDocument(newInvoiceDoc, payStatus, null, tenantId);
+      if (!result) { showToast("Conversion failed - check connection"); return; }
+      await dbSaveClient(doc.to, doc.abnR, tenantId, doc.clientEmail, doc.clientMobile);
+      setModeState("invoice");
+      setDoc(d => ({ ...d, docType: "invoice", convertedToInvoice: true, number: result.number, prefix: result.prefix, id: result.id }));
+      setDocId(result.id);
+      setPayStatusState("unpaid");
+      const docs = await dbLoadDocuments(tenantId); setSaved(docs);
+      showToast("Converted to Invoice INV-" + result.number);
     } catch (e) {
-      console.error("PDF generation error:", e);
-      showToast("❌ PDF failed — try Print instead");
+      console.error("Convert error:", e);
+      showToast("Conversion failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePrint = async () => {
-    // Save first if not yet saved
-    if (!doc.number) {
-      await saveDoc();
-      await new Promise(r => setTimeout(r, 600));
+  const handlePrint = () => {
+    if (!doc.clientEmail || !doc.clientEmail.trim()) {
+      showToast("⚠️ Client email is required before printing"); return;
     }
-    if (isMobile()) {
-      // Mobile — use jsPDF + html2canvas
-      await generatePDF();
+    if (!doc.clientMobile || !doc.clientMobile.trim()) {
+      showToast("⚠️ Client mobile is required before printing"); return;
+    }
+    if (!doc.number) {
+      saveDoc();
+      setTimeout(() => {
+        const cn = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
+        document.title = cn; window.print();
+        setTimeout(() => { document.title = "Invoice App"; }, 3000);
+      }, 800);
     } else {
-      // Desktop — use browser print dialog
       const cn = (doc.to || "").split("\n")[0].trim().replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Invoice";
-      document.title = cn + " " + (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + (doc.number || "NEW");
-      window.print();
-      setTimeout(() => { document.title = "Invoice App"; }, 3000);
+      document.title = cn + " " + (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number;
+      window.print(); setTimeout(() => { document.title = "Invoice App"; }, 3000);
     }
   };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { setLogoSrc(ev.target.result); const profile = loadProfile(); profile.logo = ev.target.result; dbSaveProfile(profile); };
+    reader.onload = (ev) => {
+      setLogoSrc(ev.target.result);
+      const profile = loadProfile(); profile.logo = ev.target.result;
+      dbSaveProfile(profile, tenantId);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -556,194 +686,113 @@ export default function App({ user }) {
 
   const displayNumber = doc.number ? (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number : "NEW";
 
+  // Guard: if tenantId not loaded yet, show loading
+  if (!tenantId) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#E8E4D0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "monospace", fontSize: 13, color: "#8888CC" }}>Loading your workspace...</div>
+      </div>
+    );
+  }
+
   return (
     <div style={S.body}>
       <style>{`
         * { box-sizing: border-box; }
         textarea { scrollbar-width: none; -ms-overflow-style: none; } textarea::-webkit-scrollbar { display: none; }
 
-        /* ── Mobile responsive ── */
         @media (max-width: 600px) {
-          #invoice-paper {
-            padding: 12px 8px !important;
-            border-left-width: 4px !important;
-            overflow-x: hidden !important;
-          }
-
-          /* Beta banner — single line */
-          .beta-banner {
-            font-size: 9px !important;
-            padding: 5px 8px !important;
-            line-height: 1.4 !important;
-            letter-spacing: 0 !important;
-          }
-
-          /* Toolbar — compact on mobile */
-          .mobile-toolbar {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 6px !important;
-            padding: 8px 10px !important;
-          }
-
-          /* Invoice header — logo small, company left aligned */
-          .invoice-header {
-            flex-direction: row !important;
-            align-items: flex-start !important;
-            gap: 10px !important;
-            margin-bottom: 10px !important;
-          }
-          .invoice-header label {
-            width: 70px !important;
-            height: 50px !important;
-            flex-shrink: 0 !important;
-          }
-          .invoice-header > div:last-child {
-            text-align: left !important;
-            width: 100% !important;
-            flex: 1 !important;
-          }
-          .invoice-header > div:last-child input {
-            text-align: left !important;
-            font-size: 11px !important;
-          }
-          .invoice-header > div:last-child input:first-child {
-            font-size: 14px !important;
-          }
-
-          /* Meta grid — date full width, order+number side by side */
-          .meta-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-          .meta-grid > div:first-child {
-            grid-column: 1 / -1 !important;
-            border-right: none !important;
-            border-bottom: 1.5px solid #2D2D7A !important;
-          }
-          .meta-grid > div:nth-child(2) {
-            border-right: 1.5px solid #2D2D7A !important;
-          }
-          .meta-grid > div:nth-child(3) {
-            border-right: none !important;
-          }
-
-          /* From/To — stack vertically */
-          .from-to-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .from-to-grid > div:first-child {
-            border-right: none !important;
-            border-bottom: 1.5px solid #2D2D7A !important;
-          }
-
-          /* ABN row — stack vertically */
-          .abn-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .abn-grid > div:first-child {
-            border-right: none !important;
-            border-bottom: 1px solid #C8C8E8 !important;
-          }
-
-          /* Table — scrollable */
-          .invoice-table-wrap {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-          }
-          .invoice-table-wrap table {
-            min-width: 460px !important;
-          }
-
-          /* Payment pills — compact */
-          .payment-row {
-            gap: 6px !important;
-            padding: 0 10px 8px !important;
-          }
-          .payment-row button {
-            padding: 4px 10px !important;
-            font-size: 10px !important;
-          }
-
-          /* Share bar */
-          .share-bar {
-            flex-direction: column !important;
-            gap: 8px !important;
-          }
-          .share-bar button, .share-bar a {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-
-          /* Invoice title */
-          .invoice-title {
-            font-size: 17px !important;
-            padding: 6px 8px !important;
-          }
-
-          /* Date input left align */
-          input[type="date"] {
-            text-align: left !important;
-          }
-
-          /* Hide NZ GST on mobile */
-          .nz-only { display: none !important; }
-
-          /* Date left aligned */
-          input[type="date"] {
-            text-align: left !important;
-            padding-left: 4px !important;
-            display: block !important;
-            width: 100% !important;
-          }
-          .meta-grid > div:first-child input {
-            text-align: left !important;
-          }
-
-          /* Hide "assigned on save" text on mobile */
+          #invoice-paper { padding: 12px 8px !important; border-left-width: 4px !important; overflow-x: hidden !important; }
+          .beta-banner { font-size: 9px !important; padding: 5px 8px !important; line-height: 1.4 !important; letter-spacing: 0 !important; }
+          .mobile-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 6px !important; padding: 8px 10px !important; }
+          .invoice-header { flex-direction: row !important; align-items: flex-start !important; gap: 10px !important; margin-bottom: 10px !important; }
+          .invoice-header label { width: 70px !important; height: 50px !important; flex-shrink: 0 !important; }
+          .invoice-header > div:last-child { text-align: left !important; width: 100% !important; flex: 1 !important; }
+          .invoice-header > div:last-child input { text-align: left !important; font-size: 11px !important; }
+          .invoice-header > div:last-child input:first-child { font-size: 14px !important; }
+          .meta-grid { grid-template-columns: 1fr 1fr !important; }
+          .meta-grid > div:first-child { grid-column: 1 / -1 !important; border-right: none !important; border-bottom: 1.5px solid #2D2D7A !important; }
+          .meta-grid > div:nth-child(2) { border-right: 1.5px solid #2D2D7A !important; }
+          .meta-grid > div:nth-child(3) { border-right: none !important; }
+          .from-to-grid { grid-template-columns: 1fr !important; }
+          .from-to-grid > div:first-child { border-right: none !important; border-bottom: 1.5px solid #2D2D7A !important; }
+          .abn-grid { grid-template-columns: 1fr !important; }
+          .abn-grid > div:first-child { border-right: none !important; border-bottom: 1px solid #C8C8E8 !important; }
+          .invoice-table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+          .invoice-table-wrap table { min-width: 460px !important; }
+          .payment-row { gap: 6px !important; padding: 0 10px 8px !important; }
+          .payment-row button { padding: 4px 10px !important; font-size: 10px !important; }
+          .share-bar { flex-direction: column !important; gap: 8px !important; }
+          .share-bar button, .share-bar a { width: 100% !important; justify-content: center !important; }
+          .invoice-title { font-size: 17px !important; padding: 6px 8px !important; }
+          input[type="date"] { text-align: left !important; padding-left: 4px !important; display: block !important; width: 100% !important; }
+          .meta-grid > div:first-child input { text-align: left !important; }
           .assigned-on-save { display: none !important; }
-
-          /* Beta banner single line */
           .beta-banner span { display: none !important; }
-
-          /* Tighter invoice paper padding */
           #invoice-paper { padding: 10px 8px !important; }
-
-          /* Smaller invoice number on mobile */
-          .invoice-number-display {
-            font-size: 16px !important;
-          }
-
-          /* Mode toggle full width */
-          .mode-toggle {
-            width: 100% !important;
-          }
-          .mode-toggle button {
-            flex: 1 !important;
-          }
-
-          /* Action buttons full width row */
-          .action-btns {
-            width: 100% !important;
-            display: flex !important;
-            gap: 6px !important;
-          }
-          .action-btns button {
-            flex: 1 !important;
-            padding: 9px 4px !important;
-            font-size: 12px !important;
-          }
+          .invoice-number-display { font-size: 16px !important; }
+          .mode-toggle { width: 100% !important; }
+          .mode-toggle button { flex: 1 !important; }
+          .action-btns { width: 100% !important; display: flex !important; gap: 6px !important; }
+          .action-btns button { flex: 1 !important; padding: 9px 4px !important; font-size: 12px !important; }
         }
 
         @media print {
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          body { margin: 0 !important; padding: 0 !important; background: white !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
+
+          /* A4 page setup */
+          @page { size: A4 portrait; margin: 8mm; }
+
+          html, body { margin: 0 !important; padding: 0 !important; background: white !important; width: 210mm !important; }
+
           .no-print { display: none !important; }
-          #invoice-paper { width: 100% !important; max-width: 100% !important; box-shadow: none !important; border-left: 6px solid #B8A870 !important; margin: 0 !important; padding: 20px 24px !important; page-break-after: always !important; }
-          .search-bar-row { display: none !important; } .remove-row-btn { display: none !important; } .add-row-btn { display: none !important; } .sig-clear-row { display: none !important; }
-          #invoice-paper::after { content: 'BETA VERSION - invoice.bluesquaresolutions.com.au'; display: block !important; text-align: center; font-size: 9px; color: #bbb; font-family: monospace; letter-spacing: 1.5px; padding-top: 10px; margin-top: 10px; border-top: 1px solid #eee; }
-          .tc-page { display: block !important; page-break-before: always !important; padding: 32px 40px !important; }
+          .mandatory-star { display: none !important; }
+          .search-bar-row { display: none !important; }
+          .remove-row-btn { display: none !important; }
+          .add-row-btn { display: none !important; }
+          .sig-clear-row { display: none !important; }
+
+          /* Invoice paper fills A4 exactly, scaled to fit */
+          #invoice-paper {
+            width: 194mm !important;
+            max-width: 194mm !important;
+            min-height: auto !important;
+            margin: 0 auto !important;
+            padding: 10mm 12mm !important;
+            box-shadow: none !important;
+            border-left: 5px solid #B8A870 !important;
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
+            font-size: 11px !important;
+          }
+
+          /* Tighten up all internal spacing for print */
+          #invoice-paper .invoice-title { font-size: 18px !important; padding: 5px 10px !important; margin-bottom: 8px !important; }
+          #invoice-paper .invoice-header { margin-bottom: 6px !important; }
+          #invoice-paper .meta-grid { }
+          #invoice-paper table th { padding: 4px 6px !important; font-size: 9px !important; }
+          #invoice-paper table td { height: 26px !important; }
+          #invoice-paper table input { font-size: 11px !important; }
+
+          /* Footer watermark */
+          #invoice-paper::after {
+            content: 'invoice.bluesquaresolutions.com.au';
+            display: block !important;
+            text-align: center;
+            font-size: 8px;
+            color: #ccc;
+            font-family: monospace;
+            letter-spacing: 1.5px;
+            padding-top: 6px;
+            margin-top: 6px;
+            border-top: 1px solid #eee;
+          }
+
+          /* T&C on second page */
+          .tc-page { display: block !important; page-break-before: always !important; padding: 20mm 15mm !important; }
         }
         .tc-page { display: none; }
+
       `}</style>
 
       {/* Delete Account Modal */}
@@ -768,49 +817,44 @@ export default function App({ user }) {
         </div>
       )}
 
-      {/* Beta Limit Modal */}
+      {/* Doc Limit Modal */}
       {showLimitModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 12, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.3)", textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>🚀</div>
-            <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#2D2D7A", marginBottom: 10 }}>Beta Limit Reached</div>
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#2D2D7A", marginBottom: 10 }}>Document Limit Reached</div>
             <p style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, marginBottom: 20 }}>
-              You have reached the <strong>10 document limit</strong> for the beta version. Contact us to upgrade to full access with unlimited invoices and quotes.
+              You've used all <strong>{docLimit} documents</strong> on the free plan. Upgrade to get unlimited invoices and quotes.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-              <a href="mailto:sudhir@bluesquaresolutions.com.au?subject=Upgrade from Beta&body=Hi, I would like to upgrade my Blue Square Invoice account to full access. My email is: " target="_blank"
+              <a href="mailto:sudhir@bluesquaresolutions.com.au?subject=Upgrade Blue Square Invoice&body=Hi, I would like to upgrade my Blue Square Invoice account. My email is: " target="_blank"
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#2D2D7A", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 ✉ Email Us to Upgrade
               </a>
-              <a href="https://wa.me/61490143160?text=Hi%2C%20I%20would%20like%20to%20upgrade%20my%20Blue%20Square%20Invoice%20beta%20account%20to%20full%20access." target="_blank"
+              <a href="https://wa.me/61490143160?text=Hi%2C%20I%20would%20like%20to%20upgrade%20my%20Blue%20Square%20Invoice%20account." target="_blank"
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#25D366", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 WhatsApp Us to Upgrade
               </a>
             </div>
-            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 16 }}>
-              sudhir@bluesquaresolutions.com.au &nbsp;|&nbsp; +61 490 143 160
-            </div>
-            <button onClick={() => setShowLimitModal(false)} style={{ padding: "8px 24px", borderRadius: 6, border: "1px solid #ddd", background: "#f5f5f5", fontFamily: "monospace", fontSize: 12, cursor: "pointer" }}>
-              Close
-            </button>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 16 }}>sudhir@bluesquaresolutions.com.au &nbsp;|&nbsp; +61 490 143 160</div>
+            <button onClick={() => setShowLimitModal(false)} style={{ padding: "8px 24px", borderRadius: 6, border: "1px solid #ddd", background: "#f5f5f5", fontFamily: "monospace", fontSize: 12, cursor: "pointer" }}>Close</button>
           </div>
         </div>
       )}
 
       <div className="no-print beta-banner" style={{ width: "100%", background: "#2D2D7A", color: "#fff", textAlign: "center", padding: "6px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1 }}>
-        BETA VERSION - Your feedback helps us improve!
-        <a href="https://tally.so/r/jaLXDJ" target="_blank" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 8 }}>Give Feedback</a>
+        For support contact <a href="mailto:support@bluesquaresolutions.com.au" style={{ color: "#FFD700", textDecoration: "underline", marginLeft: 4 }}>support@bluesquaresolutions.com.au</a>
         <span style={{ margin: "0 8px" }}>|</span> invoice.bluesquaresolutions.com.au
       </div>
 
       {loading && <div style={{ width: "100%", background: "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, color: "#2E7D32", letterSpacing: 1 }}>Syncing with cloud...</div>}
 
-      {/* Beta doc counter — hidden for premium users */}
+      {/* Doc counter — hidden for paid/admin */}
       {!isPremium && (
-        <div className="no-print" style={{ width: "100%", background: saved.length >= BETA_LIMIT ? "#FEE2E2" : saved.length >= 8 ? "#FEF3C7" : "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: saved.length >= BETA_LIMIT ? "#991B1B" : saved.length >= 8 ? "#92400E" : "#2E7D32" }}>
-          BETA: {saved.length} / {BETA_LIMIT} documents used
-          {saved.length >= BETA_LIMIT && <span style={{ marginLeft: 8, fontWeight: 700 }}>— Limit reached. Contact us to upgrade.</span>}
-          {saved.length >= 8 && saved.length < BETA_LIMIT && <span style={{ marginLeft: 8 }}>— {BETA_LIMIT - saved.length} remaining</span>}
+        <div className="no-print" style={{ width: "100%", background: saved.length >= docLimit ? "#FEE2E2" : saved.length >= docLimit - 2 ? "#FEF3C7" : "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: saved.length >= docLimit ? "#991B1B" : saved.length >= docLimit - 2 ? "#92400E" : "#2E7D32" }}>
+          FREE: {saved.length} / {docLimit} documents used
+          {saved.length >= docLimit && <span style={{ marginLeft: 8, fontWeight: 700 }}>— Limit reached. Upgrade to continue.</span>}
+          {saved.length >= docLimit - 2 && saved.length < docLimit && <span style={{ marginLeft: 8 }}>— {docLimit - saved.length} remaining</span>}
         </div>
       )}
 
@@ -818,8 +862,14 @@ export default function App({ user }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontFamily: "Georgia, serif", fontSize: 17, color: "#4A3F00" }}>Blue Square Invoice</span>
           {user && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</span>
+              {onShowTeam && (
+                <button onClick={onShowTeam} style={{ fontFamily: "monospace", fontSize: 11, color: "#2D2D7A", background: "none", border: "1px solid #2D2D7A", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>👥 Team</button>
+              )}
+              {onShowAdmin && isAdmin && (
+                <button onClick={onShowAdmin} style={{ fontFamily: "monospace", fontSize: 11, color: "#7A2D2D", background: "rgba(122,45,45,0.08)", border: "1px solid #7A2D2D", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>⚙ Admin</button>
+              )}
               <button onClick={signOut} style={{ fontFamily: "monospace", fontSize: 11, color: "#C0392B", background: "none", border: "1px solid #C0392B", borderRadius: 4, padding: "3px 8px", cursor: "pointer" }}>Sign out</button>
             </div>
           )}
@@ -843,7 +893,6 @@ export default function App({ user }) {
         {pill("overdue", "Overdue", "#FEE2E2", "#991B1B", "#EF4444")}
       </div>
 
-      {/* Share bar */}
       {doc.number && (
         <div className="no-print" style={{ width: "100%", maxWidth: 820, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.5)", border: "1px solid #C8C0A0", borderRadius: 8, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontFamily: "monospace", fontSize: 11, color: "#6A5F30", fontWeight: 700, flex: 1 }}>
@@ -856,21 +905,26 @@ export default function App({ user }) {
             const company = doc.coName || "us";
             const type = isQuote ? "quote" : "invoice";
             const msg = "Hi " + clientName + ",\n\nPlease find your " + type + " *" + docNum + "* for *" + amount + "* from " + company + ".\n\nKindly review and let us know if you have any questions.\n\nThank you,\n" + company;
-            window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+            const mobile = (doc.clientMobile || "").replace(/\D/g, "").replace(/^0/, "61");
+            const waUrl = mobile
+              ? "https://wa.me/" + mobile + "?text=" + encodeURIComponent(msg)
+              : "https://wa.me/?text=" + encodeURIComponent(msg);
+            window.open(waUrl, "_blank");
           }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "#25D366", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
             WhatsApp
           </button>
           <button onClick={() => {
             const clientName = (doc.to || "").split("\n")[0].trim() || "there";
             const docNum = (doc.prefix || (isQuote ? "QT" : "INV")) + "-" + doc.number;
-            const totals = calcTotals(doc.rows);
-            const amount = "$" + totals.grandTotal;
+            const t = calcTotals(doc.rows);
+            const amount = "$" + t.grandTotal;
             const company = doc.coName || "us";
             const type = isQuote ? "Quote" : "Invoice";
             const subject = type + " " + docNum + " from " + company;
             const lines = doc.rows.filter(r => r.desc && r.total).map(r => "- " + r.desc + ": $" + r.total).join("\n");
-            const body = "Hi " + clientName + ",\n\nPlease find your " + type.toLowerCase() + " " + docNum + " for " + amount + ".\n\nDate: " + (doc.date || "") + "\n\nItems:\n" + lines + "\n\nSubtotal: $" + totals.subtotal + "\nGST (10%): $" + totals.gstTotal + "\nTotal Inc. GST: " + amount + "\n\nPlease contact us if you have any questions.\n\nKind regards,\n" + company + "\n" + (doc.coPhone || "") + "\n" + (doc.coAddr || "");
-            window.open("mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank");
+            const body = "Hi " + clientName + ",\n\nPlease find your " + type.toLowerCase() + " " + docNum + " for " + amount + ".\n\nDate: " + (doc.date || "") + "\n\nItems:\n" + lines + "\n\nSubtotal: $" + t.subtotal + "\nGST (10%): $" + t.gstTotal + "\nTotal Inc. GST: " + amount + "\n\nKind regards,\n" + company + "\n" + (doc.coPhone || "") + "\n" + (doc.coAddr || "");
+            const toEmail = doc.clientEmail || "";
+            window.open("mailto:" + toEmail + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank");
           }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, background: "#2D2D7A", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
             Email
           </button>
@@ -896,7 +950,7 @@ export default function App({ user }) {
         <div className="meta-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", border: "1.5px solid " + ink }}>
           <div style={{ padding: "6px 10px", borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>Date</span>
-            <input type="date" value={doc.date || ""} onChange={e => setDoc(d => ({ ...d, date: e.target.value }))} style={{ ...S.metaInput, textAlign: "left", WebkitTextAlign: "left" }} />
+            <input type="date" value={doc.date || ""} onChange={e => setDoc(d => ({ ...d, date: e.target.value }))} style={S.metaInput} />
           </div>
           <div style={{ padding: "6px 10px", borderRight: "1.5px solid " + ink }}>
             <span style={S.label}>Order / PO Number</span>
@@ -917,7 +971,18 @@ export default function App({ user }) {
             <AutoTextarea value={doc.from || ""} onChange={e => setDoc(d => ({ ...d, from: e.target.value }))} placeholder={"Your name / business\nStreet address\nCity, State, Postcode"} style={S.textarea} />
           </div>
           <div style={{ padding: "8px 10px", minHeight: 80, position: "relative" }}>
-            <ClientSearch value={doc.to || ""} ink={ink} onChange={(address, abn) => setDoc(d => ({ ...d, to: address, ...(abn !== null ? { abnR: abn } : {}) }))} />
+            <ClientSearch
+              value={doc.to || ""}
+              ink={ink}
+              tenantId={tenantId}
+              clientEmail={doc.clientEmail}
+              clientMobile={doc.clientMobile}
+              onChange={(address, abn) => setDoc(d => ({ ...d, to: address, ...(abn !== null ? { abnR: abn } : {}) }))}
+              onEmailChange={v => setDoc(d => ({ ...d, clientEmail: v }))}
+              onMobileChange={v => setDoc(d => ({ ...d, clientMobile: v }))}
+              onBlurSave={() => dbSaveClient(doc.to, doc.abnR, tenantId, doc.clientEmail, doc.clientMobile)}
+              onSelectClient={(client) => setDoc(d => ({ ...d, clientEmail: client.email || d.clientEmail, clientMobile: client.phone || d.clientMobile }))}
+            />
           </div>
         </div>
 
@@ -938,22 +1003,27 @@ export default function App({ user }) {
 
         <div className="invoice-table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", border: "1.5px solid " + ink }}>
           <thead>
-            <tr>{[["QTY", "60px"], ["Description", "auto"], ["Each $", "90px"], ["GST 10%", "80px"], ["Total $", "100px"], ["", "32px"]].map(([h, w]) => <th key={h} style={{ ...S.th, width: w, textAlign: h === "Description" ? "left" : "center" }}>{h}</th>)}</tr>
+            <tr>{[["QTY", "60px"], ["Description", "auto"], ["Each $", "90px"], ["GST?", "48px"], ["GST $", "72px"], ["Total $", "100px"], ["", "32px"]].map(([h, w]) => <th key={h} style={{ ...S.th, width: w, textAlign: h === "Description" ? "left" : "center" }}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {doc.rows.map((row, idx) => (
               <tr key={row.id} style={{ background: idx % 2 === 1 ? "rgba(" + (isQuote ? "180,220,200" : "200,200,232") + ",0.08)" : "transparent" }}>
-                <td style={S.td}><input value={row.qty} onChange={e => updateRow(idx, "qty", e.target.value)} placeholder="1" type="number" min="1" step="1" style={S.tdInput} /></td>
+                <td style={S.td}><input value={row.qty} onChange={e => updateRow(idx, "qty", e.target.value)} placeholder="0" type="number" min="0" step="1" style={S.tdInput} /></td>
                 <td style={S.td}><input value={row.desc} onChange={e => updateRow(idx, "desc", e.target.value)} placeholder="Description of goods / services" style={{ ...S.tdInput, textAlign: "left" }} /></td>
                 <td style={S.td}><input value={row.each} onChange={e => updateRow(idx, "each", e.target.value)} placeholder="0.00" type="number" min="0" step="0.01" style={S.tdInput} /></td>
+                <td style={{ ...S.td, textAlign: "center", verticalAlign: "middle" }}>
+                  <input type="checkbox" checked={row.gstApplied !== false} onChange={e => updateRow(idx, "gstApplied", e.target.checked)}
+                    title={row.gstApplied !== false ? "GST applied — click to remove" : "No GST — click to apply"}
+                    style={{ width: 15, height: 15, cursor: "pointer", accentColor: ink }} />
+                </td>
                 <td style={S.td}><input value={row.gst} readOnly style={{ ...S.tdInput, color: "#8888CC" }} /></td>
                 <td style={S.td}><input value={row.total} readOnly style={{ ...S.tdInput, fontWeight: 700 }} /></td>
                 <td className="remove-row-btn" style={S.td}><button onClick={() => removeRow(idx)} style={{ width: "100%", height: "100%", border: "none", background: "transparent", color: "#C0392B", cursor: "pointer", fontSize: 14 }}>x</button></td>
               </tr>
             ))}
           </tbody>
-        </table>
-        </div><button className="add-row-btn" onClick={addRow} style={{ width: "100%", border: "1px dashed " + (isQuote ? "#7AB898" : "#8888CC"), borderTop: "none", background: "transparent", color: isQuote ? "#7AB898" : "#8888CC", fontFamily: "monospace", fontSize: 12, letterSpacing: 1, padding: 6, cursor: "pointer" }}>+ ADD LINE ITEM</button>
+        </table></div>
+        <button className="add-row-btn" onClick={addRow} style={{ width: "100%", border: "1px dashed " + (isQuote ? "#7AB898" : "#8888CC"), borderTop: "none", background: "transparent", color: isQuote ? "#7AB898" : "#8888CC", fontFamily: "monospace", fontSize: 12, letterSpacing: 1, padding: 6, cursor: "pointer" }}>+ ADD LINE ITEM</button>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", border: "1.5px solid " + ink, borderTop: "1.5px solid " + ink }}>
           <div style={{ padding: 10, borderRight: "1.5px solid " + ink, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -991,11 +1061,12 @@ export default function App({ user }) {
         </div>
       )}
 
-      {/* Account Management */}
       <div className="no-print" style={{ width: "100%", maxWidth: 820, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "rgba(192,57,43,0.06)", borderRadius: 8, border: "1px solid rgba(192,57,43,0.15)" }}>
         <div>
           <span style={{ fontFamily: "monospace", fontSize: 12, color: "#C0392B", fontWeight: 700 }}>Account</span>
           {user && <span style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginLeft: 8 }}>{user.email}</span>}
+          {isAdmin && <span style={{ fontFamily: "monospace", fontSize: 10, color: "#7A2D2D", marginLeft: 8, background: "rgba(122,45,45,0.1)", padding: "2px 6px", borderRadius: 4 }}>ADMIN</span>}
+          {!isAdmin && <span style={{ fontFamily: "monospace", fontSize: 10, color: "#2D2D7A", marginLeft: 8, background: "rgba(45,45,122,0.08)", padding: "2px 6px", borderRadius: 4 }}>{tenantPlan.plan?.toUpperCase()}</span>}
         </div>
         <button onClick={() => { setShowDeleteModal(true); setDeleteConfirmEmail(""); setDeleteError(""); }}
           style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #C0392B", background: "transparent", color: "#C0392B", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -1022,8 +1093,10 @@ export default function App({ user }) {
       )}
 
       <div className="no-print" style={{ width: "100%", maxWidth: 820, marginTop: 16 }}>
-        <button onClick={async () => { const opening = !drawerOpen; setDrawerOpen(opening); if (opening) { setLoading(true); const docs = await dbLoadDocuments(); setSaved(docs); setLoading(false); } }}
-          style={{ width: "100%", background: "rgba(0,0,0,0.08)", border: "none", borderRadius: drawerOpen ? "8px 8px 0 0" : 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", cursor: "pointer", fontFamily: "Lato, sans-serif", fontSize: 14, color: "#4A3F00", fontWeight: 700 }}>
+        <button onClick={async () => {
+          const opening = !drawerOpen; setDrawerOpen(opening);
+          if (opening) { setLoading(true); const docs = await dbLoadDocuments(tenantId); setSaved(docs); setLoading(false); }
+        }} style={{ width: "100%", background: "rgba(0,0,0,0.08)", border: "none", borderRadius: drawerOpen ? "8px 8px 0 0" : 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", cursor: "pointer", fontFamily: "Lato, sans-serif", fontSize: 14, color: "#4A3F00", fontWeight: 700 }}>
           <span>Saved Documents {saved.length > 0 ? "(" + saved.length + ")" : ""}</span>
           <span>{drawerOpen ? "▲" : "▼"}</span>
         </button>
@@ -1035,6 +1108,7 @@ export default function App({ user }) {
                 const iq = (inv.docType || "invoice") === "quote";
                 const prefix = inv.prefix || (iq ? "QT" : "INV");
                 const docNum = prefix + "-" + (inv.number || "---");
+                const canDelete = isPremium;
                 return (
                   <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee", flexWrap: "wrap", gap: 8 }}>
                     <div>
@@ -1048,10 +1122,8 @@ export default function App({ user }) {
                     <div style={{ display: "flex", gap: 6 }}>
                       {iq && !inv.convertedToInvoice && <button onClick={() => { loadDoc(inv); setTimeout(convertToInvoice, 200); }} style={S.btn("#1A5C3A")}>Convert</button>}
                       <button onClick={() => loadDoc(inv)} style={S.btn("#2D2D7A")}>Load</button>
-                      <button
-                        onClick={() => deleteDoc(inv.id, docNum)}
-                        title={!isPremium ? "Upgrade to Premium to delete documents" : "Delete"}
-                        style={{ ...S.btn(!isPremium ? "#ccc" : "#C0392B"), cursor: !isPremium ? "not-allowed" : "pointer", opacity: !isPremium ? 0.5 : 1 }}>
+                      <button onClick={() => deleteDoc(inv.id, docNum)} title={!canDelete ? "Upgrade to delete" : "Delete"}
+                        style={{ ...S.btn(!canDelete ? "#ccc" : "#C0392B"), cursor: !canDelete ? "not-allowed" : "pointer", opacity: !canDelete ? 0.5 : 1 }}>
                         Delete
                       </button>
                     </div>

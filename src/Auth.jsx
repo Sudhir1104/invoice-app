@@ -1,6 +1,48 @@
 import { useState } from "react";
 import { supabase } from "./supabase";
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+function getLockoutKey(email) { return "lockout_" + email.toLowerCase().trim(); }
+
+function checkLockout(email) {
+  try {
+    const raw = localStorage.getItem(getLockoutKey(email));
+    if (!raw) return { locked: false, remaining: 0, attempts: 0 };
+    const data = JSON.parse(raw);
+    const elapsed = Date.now() - data.lastAttempt;
+    if (data.attempts >= MAX_ATTEMPTS && elapsed < LOCKOUT_MS) {
+      const remaining = Math.ceil((LOCKOUT_MS - elapsed) / 60000);
+      return { locked: true, remaining, attempts: data.attempts };
+    }
+    // Lockout expired — reset
+    if (elapsed >= LOCKOUT_MS) {
+      localStorage.removeItem(getLockoutKey(email));
+      return { locked: false, remaining: 0, attempts: 0 };
+    }
+    return { locked: false, remaining: 0, attempts: data.attempts };
+  } catch { return { locked: false, remaining: 0, attempts: 0 }; }
+}
+
+function recordFailedAttempt(email) {
+  try {
+    const key = getLockoutKey(email);
+    const raw = localStorage.getItem(key);
+    const data = raw ? JSON.parse(raw) : { attempts: 0, lastAttempt: Date.now() };
+    // Reset count if last attempt was over 15 min ago
+    if (Date.now() - data.lastAttempt >= LOCKOUT_MS) data.attempts = 0;
+    data.attempts += 1;
+    data.lastAttempt = Date.now();
+    localStorage.setItem(key, JSON.stringify(data));
+    return data.attempts;
+  } catch { return 0; }
+}
+
+function clearLockout(email) {
+  try { localStorage.removeItem(getLockoutKey(email)); } catch {}
+}
+
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -8,23 +50,63 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [attemptsLeft, setAttemptsLeft] = useState(MAX_ATTEMPTS);
 
   const ink = "#2D2D7A";
 
   const handleSubmit = async () => {
     if (!email || !password) { setError("Please enter email and password"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+
+    // Check lockout before attempting
+    const lockout = checkLockout(email);
+    if (lockout.locked) {
+      setError("Too many failed attempts. Account locked for " + lockout.remaining + " more minute" + (lockout.remaining !== 1 ? "s" : "") + ".");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setMessage("");
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else setMessage("✓ Account created! Please check your email to confirm, then sign in.");
+      if (!/[A-Z]/.test(password)) { setError("Password must contain at least 1 uppercase letter"); setLoading(false); return; }
+      if (!/[a-z]/.test(password)) { setError("Password must contain at least 1 lowercase letter"); setLoading(false); return; }
+      if (!/[^A-Za-z0-9]/.test(password)) { setError("Password must contain at least 1 special character (!@#$%^&*)"); setLoading(false); return; }
+      if (/012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz/i.test(password)) { setError("Password cannot contain sequential letters or numbers (e.g. abc, 123)"); setLoading(false); return; }
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        // Supabase returns this when email already exists
+        if (error.message.toLowerCase().includes("already registered") ||
+            error.message.toLowerCase().includes("already exists") ||
+            error.message.toLowerCase().includes("user already")) {
+          setError("An account with this email already exists. Please sign in instead.");
+        } else {
+          setError(error.message);
+        }
+      } else if (data?.user?.identities?.length === 0) {
+        // Supabase silently returns a fake user when email exists + confirmations are on
+        setError("An account with this email already exists. Please sign in instead.");
+      } else {
+        clearLockout(email);
+        setMessage("✓ Check your email to confirm your account before signing in.");
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      if (error) {
+        const attempts = recordFailedAttempt(email);
+        const left = MAX_ATTEMPTS - attempts;
+        if (left <= 0) {
+          setError("Too many failed attempts. Account locked for 15 minutes.");
+          setAttemptsLeft(0);
+        } else {
+          setError("Incorrect email or password. " + left + " attempt" + (left !== 1 ? "s" : "") + " remaining before lockout.");
+          setAttemptsLeft(left);
+        }
+      } else {
+        clearLockout(email);
+        setAttemptsLeft(MAX_ATTEMPTS);
+      }
     }
     setLoading(false);
   };
@@ -35,9 +117,9 @@ export default function Auth() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#E8E4D0", display: "flex", flexDirection: "column",
+      minHeight: "100vh", background: "#F5F8FF", display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center", padding: 20,
-      backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(160,150,100,0.04) 2px, rgba(160,150,100,0.04) 4px)"
+      backgroundImage: "none"
     }}>
       {/* Logo / Title */}
       <div style={{ marginBottom: 32, textAlign: "center" }}>
@@ -89,7 +171,7 @@ export default function Auth() {
           </label>
           <input
             type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown}
-            placeholder={isSignUp ? "Minimum 6 characters" : "Your password"}
+            placeholder={isSignUp ? "Min 8 chars, uppercase, special char" : "Your password"}
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #9999CC", borderRadius: 6, fontFamily: "monospace", fontSize: 14, color: ink, background: "transparent", outline: "none", boxSizing: "border-box" }}
           />
         </div>
@@ -143,9 +225,9 @@ export default function Auth() {
         </a>
       </div>
 
-      {/* Beta note */}
+      {/* Support note */}
       <div style={{ marginTop: 16, fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center" }}>
-        🚀 BETA VERSION — invoice.bluesquaresolutions.com.au
+        For support: <a href="mailto:support@bluesquaresolutions.com.au" style={{ color: "#8888CC" }}>support@bluesquaresolutions.com.au</a>
       </div>
     </div>
   );

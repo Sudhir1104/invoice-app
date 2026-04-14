@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Blue Square Invoice</title>
+<link href="https://fonts.googleapis.com/css2?family=Georgia&family=Lato:wght@300;400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #2D2D7A;
+    --navy-light: #3D3D9A;
+    --gold: #B8A870;
+    --gold-light: #D4C48C;
+    --green: #2E7D52;
+    --red: #C0392B;
+    --cream: #FEFCE8;
+    --cream-dark: #F5F0C0;
+    --paper: #E8E4D0;
+    --ink: #333;
+    --muted: #888;
+    --border: #C8C0A0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Lato', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(160,150,100,0.04) 2px, rgba(160,150,100,0.04) 4px);
+  }
+
+  /* NAV */
+  nav { background: var(--navy); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { font-family: Georgia, serif; font-size: 18px; color: #fff; text-decoration: none; letter-spacing: 0.5px; }
+  .nav-btn { padding: 8px 20px; background: var(--gold); color: var(--navy); border: none; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none; letter-spacing: 0.5px; transition: background 0.2s; }
+  .nav-btn:hover { background: var(--gold-light); }
+
+  /* HERO */
+  .hero { text-align: center; padding: 60px 20px 40px; max-width: 700px; margin: 0 auto; }
+  .hero-badge { display: inline-block; background: var(--green); color: #fff; font-family: 'DM Mono', monospace; font-size: 11px; padding: 5px 14px; border-radius: 20px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(46,125,82,0.4); } 50% { box-shadow: 0 0 0 8px rgba(46,125,82,0); } }
+  .hero h1 { font-family: Georgia, serif; font-size: 42px; color: var(--navy); line-height: 1.2; margin-bottom: 16px; }
+  .hero h1 em { font-style: italic; color: var(--gold); }
+  .hero p { font-size: 16px; color: #666; line-height: 1.7; margin-bottom: 32px; }
+
+  /* FOUNDING COUNTER */
+  .founding-bar { background: var(--navy); border: 2px solid var(--gold); border-radius: 12px; padding: 20px 28px; max-width: 560px; margin: 0 auto 48px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .founding-bar .icon { font-size: 28px; flex-shrink: 0; }
+  .founding-bar .text { flex: 1; }
+  .founding-bar .text h3 { font-family: Georgia, serif; color: var(--gold); font-size: 16px; margin-bottom: 4px; }
+  .founding-bar .text p { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5; margin: 0; }
+  .spots-counter { text-align: center; flex-shrink: 0; }
+  .spots-counter .num { font-family: Georgia, serif; font-size: 36px; color: #fff; font-weight: bold; line-height: 1; }
+  .spots-counter .label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; display: block; margin-top: 2px; }
+  .spots-bar-wrap { width: 100%; background: rgba(255,255,255,0.1); border-radius: 4px; height: 6px; margin-top: 12px; }
+  .spots-bar-fill { height: 100%; background: var(--gold); border-radius: 4px; width: 14%; transition: width 1s ease; }
+  .spots-bar-text { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 6px; text-align: right; }
+
+  /* BILLING TOGGLE */
+  .toggle-wrap { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 40px; }
+  .toggle-label { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.5px; }
+  .toggle-label.active { color: var(--navy); font-weight: 500; }
+  .toggle-switch { width: 52px; height: 28px; background: var(--navy); border-radius: 14px; cursor: pointer; position: relative; transition: background 0.2s; border: none; }
+  .toggle-switch::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .toggle-switch.yearly::after { left: 27px; }
+  .save-badge { background: var(--green); color: #fff; font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; }
+
+  /* PRICING CARDS */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 960px; margin: 0 auto 60px; padding: 0 20px; }
+  .card { background: var(--cream); border: 1px solid var(--border); border-left: 6px solid var(--border); border-radius: 4px; padding: 32px 28px; position: relative; transition: box-shadow 0.2s, transform 0.2s; }
+  .card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.12); transform: translateY(-2px); }
+  .card.featured { border-left-color: var(--navy); border-color: var(--navy); box-shadow: 0 4px 24px rgba(45,45,122,0.15); }
+  .card.founding { border-left-color: var(--gold); border-color: var(--gold); background: linear-gradient(135deg, var(--cream) 0%, #FFF8DC 100%); }
+  .card.free-card { border-left-color: var(--green); }
+  .card-badge { position: absolute; top: -12px; left: 24px; background: var(--navy); color: #fff; font-family: 'DM Mono', monospace; font-size: 10px; padding: 4px 12px; border-radius: 10px; letter-spacing: 1px; text-transform: uppercase; }
+  .card.founding .card-badge { background: var(--gold); color: var(--navy); }
+  .card.free-card .card-badge { background: var(--green); }
+  .card-name { font-family: Georgia, serif; font-size: 20px; color: var(--navy); margin-bottom: 4px; }
+  .card-desc { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+  .price-currency { font-family: 'DM Mono', monospace; font-size: 16px; color: var(--navy); }
+  .price-amount { font-family: Georgia, serif; font-size: 48px; color: var(--navy); line-height: 1; }
+  .price-period { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+  .price-saving { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--green); margin-bottom: 20px; font-weight: 500; }
+  .card-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .features-list { list-style: none; margin-bottom: 28px; }
+  .features-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #444; margin-bottom: 10px; line-height: 1.5; }
+  .features-list li .check { color: var(--green); font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .features-list li .cross { color: #ccc; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .card-btn { display: block; width: 100%; padding: 13px; text-align: center; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; letter-spacing: 0.5px; cursor: pointer; border: none; text-decoration: none; transition: opacity 0.2s, transform 0.1s; }
+  .card-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .card-btn.primary { background: var(--navy); color: #fff; }
+  .card-btn.gold { background: var(--gold); color: var(--navy); }
+  .card-btn.green { background: var(--green); color: #fff; }
+  .card-btn.outline { background: transparent; color: var(--navy); border: 2px solid var(--navy); }
+  .trial-note { text-align: center; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 8px; letter-spacing: 0.3px; }
+
+  /* COMPARISON TABLE */
+  .compare-section { max-width: 900px; margin: 0 auto 60px; padding: 0 20px; }
+  .compare-section h2 { font-family: Georgia, serif; font-size: 28px; color: var(--navy); text-align: center; margin-bottom: 8px; }
+  .compare-section .subtitle { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+  .compare-table { width: 100%; border-collapse: collapse; background: var(--cream); border: 1px solid var(--border); }
+  .compare-table th { background: var(--navy); color: #fff; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 14px 16px; text-align: left; letter-spacing: 0.5px; text-transform: uppercase; }
+  .compare-table th:not(:first-child) { text-align: center; }
+  .compare-table th.highlight { background: var(--navy-light); }
+  .compare-table td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid rgba(200,192,160,0.4); color: #444; }
+  .compare-table td:not(:first-child) { text-align: center; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:nth-child(even) td { background: rgba(0,0,0,0.02); }
+  .compare-table .row-label { font-weight: 500; color: var(--navy); }
+  .compare-table .yes { color: var(--green); font-size: 16px; }
+  .compare-table .no { color: #ccc; font-size: 16px; }
+  .compare-table .val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--navy); }
+  .compare-table .val-muted { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .compare-table .highlight-col { background: rgba(45,45,122,0.04); }
+
+  /* FAQ */
+  .faq-section { max-width: 640px; margin: 0 auto 60px; padding: 0 20px; }
+  .faq-section h2 { font-family: Georgia, serif; font-size: 28px; color: var(--navy); text-align: center; margin-bottom: 32px; }
+  .faq-item { border-bottom: 1px solid var(--border); padding: 18px 0; }
+  .faq-q { font-family: Georgia, serif; font-size: 15px; color: var(--navy); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .faq-q .icon { color: var(--gold); font-size: 18px; transition: transform 0.2s; flex-shrink: 0; }
+  .faq-a { font-size: 13px; color: #555; line-height: 1.8; margin-top: 10px; display: none; }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open .faq-q .icon { transform: rotate(45deg); }
+
+  /* FOOTER CTA */
+  .footer-cta { background: var(--navy); padding: 60px 20px; text-align: center; }
+  .footer-cta h2 { font-family: Georgia, serif; font-size: 32px; color: #fff; margin-bottom: 12px; }
+  .footer-cta p { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 28px; max-width: 460px; margin-left: auto; margin-right: auto; line-height: 1.7; }
+  .footer-cta .cta-btn { display: inline-block; padding: 14px 36px; background: var(--gold); color: var(--navy); font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; border-radius: 8px; text-decoration: none; letter-spacing: 0.5px; transition: background 0.2s; }
+  .footer-cta .cta-btn:hover { background: var(--gold-light); }
+  .footer-cta .footnote { margin-top: 16px; font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 28px; }
+    .founding-bar { flex-direction: column; text-align: center; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .compare-table { font-size: 11px; }
+    .compare-table td, .compare-table th { padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">📋 Blue Square Invoice</a>
+  <a href="/?signin=true" class="nav-btn">Get Started Free →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">🚀 Start Free — No Credit Card</div>
+  <h1>Simple pricing for<br><em>Australian businesses</em></h1>
+  <p>Start completely free. Upgrade only when you need more.<br>Founding members lock in their rate forever.</p>
+</div>
+
+<!-- FOUNDING COUNTER -->
+<div class="founding-bar">
+  <div class="icon">🏆</div>
+  <div class="text">
+    <h3>Founding Member Offer — First 50 Only</h3>
+    <p>Lock in $2.99/month on the Starter plan forever — never pay more, even when the regular price goes up. First come, first served. Grandfathered for life.</p>
+    <div class="spots-bar-wrap">
+      <div class="spots-bar-fill" id="spotsBar"></div>
+    </div>
+    <div class="spots-bar-text" id="spotsText">7 of 50 spots claimed</div>
+  </div>
+  <div class="spots-counter">
+    <div class="num" id="spotsNum">43</div>
+    <span class="label">spots left</span>
+  </div>
+</div>
+
+<!-- BILLING TOGGLE -->
+<div class="toggle-wrap">
+  <span class="toggle-label active" id="lblMonthly">Monthly</span>
+  <button class="toggle-switch" id="billingToggle" onclick="toggleBilling()" aria-label="Toggle billing period"></button>
+  <span class="toggle-label" id="lblYearly">Yearly <span class="save-badge">2 months free</span></span>
+</div>
+
+<!-- PRICING CARDS -->
+<div class="cards-grid">
+
+  <!-- FREE -->
+  <div class="card free-card">
+    <div class="card-badge">✓ Always Free</div>
+    <div style="margin-top:12px">
+      <div class="card-name">Free</div>
+      <div class="card-desc">Perfect for trying it out or very occasional invoicing.</div>
+      <div class="price-row">
+        <span class="price-amount" style="font-size:40px">$0</span>
+        <span class="price-period">/forever</span>
+      </div>
+      <div class="price-saving">No credit card. No expiry. No catch.</div>
+      <hr class="card-divider">
+      <ul class="features-list">
+        <li><span class="check">✓</span> <strong>10 invoices per month</strong></li>
+        <li><span class="check">✓</span> Quote → Tax Invoice conversion</li>
+        <li><span class="check">✓</span> GST toggle (registered/not)</li>
+        <li><span class="check">✓</span> Discount % on invoices</li>
+        <li><span class="check">✓</span> WhatsApp & email sharing</li>
+        <li><span class="check">✓</span> Google address autocomplete</li>
+        <li><span class="check">✓</span> Stylus/Apple Pencil signature</li>
+        <li><span class="check">✓</span> PDF generation</li>
+        <li><span class="cross">✗</span> Staff accounts</li>
+        <li><span class="cross">✗</span> Unlimited invoices</li>
+      </ul>
+      <a href="/?signin=true" class="card-btn green">Start for Free →</a>
+      <div class="trial-note">No credit card • No time limit</div>
+    </div>
+  </div>
+
+  <!-- STARTER (FOUNDING) -->
+  <div class="card founding">
+    <div class="card-badge">⭐ Founding Member</div>
+    <div style="margin-top:12px">
+      <div class="card-name">Starter</div>
+      <div class="card-desc">For small businesses ready to go unlimited. Lock in forever.</div>
+      <div class="price-row">
+        <span class="price-currency">A$</span>
+        <span class="price-amount" id="starterPrice">2.99</span>
+        <span class="price-period" id="starterPeriod">/month</span>
+      </div>
+      <div class="price-saving" id="starterSaving">🔒 Founding rate — locked in forever (reg. $9.99/mo)</div>
+      <hr class="card-divider">
+      <ul class="features-list">
+        <li><span class="check">✓</span> <strong>Unlimited invoices & quotes</strong></li>
+        <li><span class="check">✓</span> Everything in Free</li>
+        <li><span class="check">✓</span> Client address book</li>
+        <li><span class="check">✓</span> Payment status tracking</li>
+        <li><span class="check">✓</span> Stats dashboard</li>
+        <li><span class="check">✓</span> 5-year data retention</li>
+        <li><span class="check">✓</span> 30-day free trial included</li>
+        <li><span class="cross">✗</span> Staff accounts (Growth only)</li>
+      </ul>
+      <a href="/?signin=true" class="card-btn gold">Claim Founding Rate →</a>
+      <div class="trial-note">30 days free • No credit card needed</div>
+    </div>
+  </div>
+
+  <!-- GROWTH -->
+  <div class="card featured">
+    <div class="card-badge">👥 Team Plan</div>
+    <div style="margin-top:12px">
+      <div class="card-name">Growth</div>
+      <div class="card-desc">For growing businesses with a team.</div>
+      <div class="price-row">
+        <span class="price-currency">A$</span>
+        <span class="price-amount" id="growthPrice">19.99</span>
+        <span class="price-period" id="growthPeriod">/month</span>
+      </div>
+      <div class="price-saving" id="growthSaving" style="visibility:hidden">save 2 months</div>
+      <hr class="card-divider">
+      <ul class="features-list">
+        <li><span class="check">✓</span> Everything in Starter</li>
+        <li><span class="check">✓</span> <strong>Up to 3 staff accounts</strong></li>
+        <li><span class="check">✓</span> Owner / Admin / Staff roles</li>
+        <li><span class="check">✓</span> Team invite via email link</li>
+        <li><span class="check">✓</span> Payment tracking dashboard</li>
+        <li><span class="check">✓</span> Stats: paid, overdue, converted</li>
+        <li><span class="check">✓</span> Priority email support</li>
+        <li><span class="check">✓</span> 30-day free trial included</li>
+      </ul>
+      <a href="/?signin=true" class="card-btn primary">Start Free Trial →</a>
+      <div class="trial-note">30 days free • No credit card needed</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- COMPARISON TABLE -->
+<div class="compare-section">
+  <h2>How we compare</h2>
+  <p class="subtitle">Blue Square Invoice vs Solo by MYOB</p>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th style="width:40%">Feature</th>
+        <th class="highlight" style="width:30%">📋 Blue Square Invoice</th>
+        <th style="width:30%">Solo by MYOB</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="row-label">Free plan</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">10 invoices/month</span></td>
+        <td><span class="no">✗</span> <span style="font-size:11px;color:#aaa">No free plan</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Starting paid price</td>
+        <td class="highlight-col"><span class="val">$2.99/mo (founding)</span></td>
+        <td><span class="val-muted">$24/year (~$2/mo)</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Staff accounts</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">Owner/Admin/Staff roles</span></td>
+        <td><span class="no">✗</span> <span style="font-size:11px;color:#aaa">Single user only</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Works on desktop</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">Any browser</span></td>
+        <td><span class="no">✗</span> <span style="font-size:11px;color:#aaa">Mobile only (2026?)</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Quote → Invoice conversion</td>
+        <td class="highlight-col"><span class="yes">✓</span></td>
+        <td><span class="no">✗</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">GST toggle (on/off)</td>
+        <td class="highlight-col"><span class="yes">✓</span></td>
+        <td><span class="no">✗</span> <span style="font-size:11px;color:#aaa">Auto only</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Discount % on invoice</td>
+        <td class="highlight-col"><span class="yes">✓</span></td>
+        <td><span class="no">✗</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Stylus / Apple Pencil signature</td>
+        <td class="highlight-col"><span class="yes">✓</span></td>
+        <td><span class="no">✗</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">WhatsApp sharing</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">Pre-filled with client mobile</span></td>
+        <td><span class="val-muted">Basic</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Cancel without calling</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">Self-service</span></td>
+        <td><span class="no">✗</span> <span style="font-size:11px;color:#aaa">Must call (1hr hold!)</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Terms & Conditions on invoice</td>
+        <td class="highlight-col"><span class="yes">✓</span> <span style="font-size:11px;color:var(--green)">Full page 2</span></td>
+        <td><span class="no">✗</span></td>
+      </tr>
+      <tr>
+        <td class="row-label">Built-in banking</td>
+        <td class="highlight-col"><span class="no">✗</span> <span style="font-size:11px;color:#aaa">Coming soon</span></td>
+        <td><span class="yes">✓</span> Solo Money</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- FAQ -->
+<div class="faq-section">
+  <h2>Frequently asked questions</h2>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">What's included in the Free plan? <span class="icon">+</span></div>
+    <div class="faq-a">The Free plan gives you 10 invoices per month — forever, no expiry, no credit card. You get full access to all invoice features including quotes, GST toggle, discounts, WhatsApp sharing, PDF generation and Apple Pencil signature. When you need more than 10 per month, simply upgrade.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">What is the Founding Member offer? <span class="icon">+</span></div>
+    <div class="faq-a">The first 50 customers who subscribe to the Starter plan get $2.99/month locked in forever — even when the regular price goes up to $9.99/month. This is our thank you to early supporters. The rate is grandfathered for life as long as the subscription stays active.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">What happens after the 30-day trial on paid plans? <span class="icon">+</span></div>
+    <div class="faq-a">After 30 days you'll be asked to enter a payment method. If you're one of the first 50 you lock in $2.99/month forever. If the 50 spots are gone, Starter is $9.99/month. No surprises — we'll remind you before your trial ends.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">Can I use this on my iPad with Apple Pencil? <span class="icon">+</span></div>
+    <div class="faq-a">Absolutely! Blue Square Invoice has pressure-sensitive stylus support on all plans including Free. Use your Apple Pencil, Surface Pen, or Samsung S Pen to sign invoices directly on screen — just like signing paper.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">How does Quote to Invoice conversion work? <span class="icon">+</span></div>
+    <div class="faq-a">Create a quote and send it to your client via WhatsApp or email. Once they approve it, click "Convert to Invoice" — it becomes a tax invoice with a new INV number, preserving all line items, client details and totals. Available on all plans.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">Can I add staff members to my account? <span class="icon">+</span></div>
+    <div class="faq-a">Yes — on the Growth plan you can invite up to 3 staff members via email link. Each gets their own login with role-based access: Owner manages billing, Admins manage all documents, Staff create and view invoices.</div>
+  </div>
+
+  <div class="faq-item" onclick="toggleFaq(this)">
+    <div class="faq-q">Can I cancel anytime? <span class="icon">+</span></div>
+    <div class="faq-a">Yes — no phone calls, no hold music. Cancel directly from your account settings in under 30 seconds. Unlike some competitors, we don't make you jump through hoops to leave. Your data is retained for 5 years following ATO record-keeping guidelines.</div>
+  </div>
+
+</div>
+
+<!-- FOOTER CTA -->
+<div class="footer-cta">
+  <h2>Start invoicing for free today</h2>
+  <p>No credit card. No time limit. 10 invoices per month free forever. Upgrade when you're ready.</p>
+  <a href="/?signin=true" class="cta-btn">Create Free Account →</a>
+  <div class="footnote">Free forever · No credit card · Built for Australia</div>
+</div>
+
+<script>
+  let isYearly = false;
+  const prices = {
+    starter: { monthly: '2.99', yearly: '28.99' },
+    growth: { monthly: '19.99', yearly: '199.00' },
+  };
+
+  function toggleBilling() {
+    isYearly = !isYearly;
+    const toggle = document.getElementById('billingToggle');
+    toggle.classList.toggle('yearly', isYearly);
+    document.getElementById('lblMonthly').classList.toggle('active', !isYearly);
+    document.getElementById('lblYearly').classList.toggle('active', isYearly);
+    const period = isYearly ? '/year' : '/month';
+
+    document.getElementById('starterPrice').textContent = isYearly ? prices.starter.yearly : prices.starter.monthly;
+    document.getElementById('starterPeriod').textContent = period;
+    document.getElementById('starterSaving').textContent = isYearly
+      ? '🔒 Founding rate — 2 months free! (reg. $99/yr)'
+      : '🔒 Founding rate — locked in forever (reg. $9.99/mo)';
+
+    document.getElementById('growthPrice').textContent = isYearly ? prices.growth.yearly : prices.growth.monthly;
+    document.getElementById('growthPeriod').textContent = period;
+    const growthSave = document.getElementById('growthSaving');
+    growthSave.style.visibility = isYearly ? 'visible' : 'hidden';
+    growthSave.textContent = '💰 Save $40 per year';
+  }
+
+  function toggleFaq(el) { el.classList.toggle('open'); }
+
+  window.addEventListener('load', () => {
+    setTimeout(() => { document.getElementById('spotsBar').style.width = '14%'; }, 300);
+  });
+</script>
+</body>
+</html>

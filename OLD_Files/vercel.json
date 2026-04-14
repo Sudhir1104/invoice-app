@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!assets/|pricing\\.html|favicon\\.ico|manifest\\.json|api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/stripe-webhook.js": {
+      "bodyParser": false
+    },
+    "api/create-checkout.js": {
+      "bodyParser": true
+    },
+    "api/create-portal.js": {
+      "bodyParser": true
+    }
+  }
+}
