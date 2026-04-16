@@ -85,10 +85,10 @@ async function dbLoadDocuments(tenantId) {
 }
 
 // Save/update document — always writes tenant_id and created_by
-async function dbSaveDocument(doc, payStatus, docId, tenantId) {
+async function dbSaveDocument(doc, payStatus, docId, tenantId, discountPct = 0) {
   const userId = await getUserId();
   if (!userId || !tenantId) return null;
-  const totals = calcTotals(doc.rows);
+  const t = calcTotals(doc.rows || [], discountPct);
   const row = {
     tenant_id: tenantId,
     created_by: userId,
@@ -103,9 +103,9 @@ async function dbSaveDocument(doc, payStatus, docId, tenantId) {
     rows: doc.rows || [],
     pay_status: payStatus || "unpaid",
     converted: doc.convertedToInvoice || false,
-    subtotal: parseFloat(totals.subtotal) || 0,
-    gst_total: parseFloat(totals.gstTotal) || 0,
-    grand_total: parseFloat(totals.grandTotal) || 0,
+    subtotal: parseFloat(t.subtotal) || 0,
+    gst_total: parseFloat(t.gstTotal) || 0,
+    grand_total: parseFloat(t.grandTotal) || 0,
     client_email: doc.clientEmail || "",
     client_mobile: doc.clientMobile || "",
   };
@@ -290,15 +290,31 @@ function calcRow(row) {
   return { ...row, gst: applyGst ? gst.toFixed(2) : "0.00", total: total.toFixed(2) };
 }
 
-function calcTotals(rows) {
+function calcTotals(rows, discountPct = 0) {
   let sub = 0; let gstTotal = 0;
   rows.forEach(r => {
     const qty = parseFloat(r.qty) || 0; const each = parseFloat(r.each) || 0; const rowSub = qty * each;
     sub += rowSub;
     if (r.gstApplied !== false) gstTotal += Math.round(rowSub * GST_RATE * 100) / 100;
   });
-  const grand = Math.round((sub + gstTotal) * 100) / 100;
-  return { subtotal: sub.toFixed(2), gstTotal: gstTotal.toFixed(2), grandTotal: grand.toFixed(2) };
+  const discountAmt = discountPct > 0 ? Math.round(sub * (discountPct / 100) * 100) / 100 : 0;
+  const discountedSub = sub - discountAmt;
+  // Recalc GST on discounted amount
+  let gstAfterDiscount = 0;
+  rows.forEach(r => {
+    const qty = parseFloat(r.qty) || 0; const each = parseFloat(r.each) || 0; const rowSub = qty * each;
+    const rowFrac = sub > 0 ? rowSub / sub : 0;
+    const rowDiscounted = rowSub - (discountAmt * rowFrac);
+    if (r.gstApplied !== false) gstAfterDiscount += Math.round(rowDiscounted * GST_RATE * 100) / 100;
+  });
+  const grand = Math.round((discountedSub + gstAfterDiscount) * 100) / 100;
+  return {
+    subtotal: sub.toFixed(2),
+    discountAmt: discountAmt.toFixed(2),
+    discountedSub: discountedSub.toFixed(2),
+    gstTotal: gstAfterDiscount.toFixed(2),
+    grandTotal: grand.toFixed(2)
+  };
 }
 
 // ══════════════════════════════════════════════
@@ -467,13 +483,14 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [discountPct, setDiscountPct] = useState(0);
   const [tenantPlan, setTenantPlan] = useState({ plan: "trial", docLimit: 10 });
 
   const isAdmin = ADMIN_EMAILS.includes(user?.email);
   const isPremium = isAdmin || tenantPlan.plan === "starter" || tenantPlan.plan === "growth" || tenantPlan.plan === "pro";
   const docLimit = tenantPlan.docLimit ?? 10;
 
-  const totals = calcTotals(doc.rows);
+  const totals = calcTotals(doc.rows, discountPct);
   const isQuote = mode === "quote";
   const ink = isQuote ? "#1A5C3A" : "#2D2D7A";
   const accentColor = isQuote ? "#C47A00" : "#C0392B";
@@ -504,6 +521,16 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
   }, [tenantId]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2800); };
+
+  // Inject print style to remove logo border — most reliable cross-browser approach
+  useEffect(() => {
+    const id = "logo-print-style";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = "@media print { .logo-label { border: none !important; border-width: 0 !important; border-style: none !important; outline: none !important; box-shadow: none !important; } }";
+    document.head.appendChild(style);
+  }, []);
 
 
   const signOut = async () => {
@@ -563,7 +590,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
     const profile = loadProfile(); const fresh = emptyDoc(mode);
     fresh.coName = profile.coName || ""; fresh.coAbn = profile.coAbn || ""; fresh.coAddr = profile.coAddr || "";
     fresh.coPhone = profile.coPhone || ""; fresh.from = profile.from || ""; fresh.abnS = profile.abnS || "";
-    setDoc(fresh); setDocId(null); setPayStatusState("unpaid");
+    setDoc(fresh); setDocId(null); setPayStatusState("unpaid"); setDiscountPct(0);
     showToast("New " + (isQuote ? "quote" : "invoice") + " started");
   };
 
@@ -581,7 +608,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
     }
     setLoading(true);
     try {
-      const result = await dbSaveDocument(doc, payStatus, docId, tenantId);
+      const result = await dbSaveDocument(doc, payStatus, docId, tenantId, discountPct);
       if (!result) { showToast("Save failed - check connection"); return; }
       if (!docId) {
         setDocId(result.id);
@@ -618,7 +645,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
         await supabase.from("documents").update({ converted: true }).eq("id", docId).eq("tenant_id", tenantId);
       }
       const newInvoiceDoc = { ...doc, docType: "invoice", convertedToInvoice: true, number: "", prefix: "" };
-      const result = await dbSaveDocument(newInvoiceDoc, payStatus, null, tenantId);
+      const result = await dbSaveDocument(newInvoiceDoc, payStatus, null, tenantId, discountPct);
       if (!result) { showToast("Conversion failed - check connection"); return; }
       await dbSaveClient(doc.to, doc.abnR, tenantId, doc.clientEmail, doc.clientMobile);
       setModeState("invoice");
@@ -699,6 +726,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
     <div style={S.body}>
       <style>{`
         * { box-sizing: border-box; }
+        @media print { .no-print-border { border: none !important; border-width: 0 !important; border-style: none !important; outline: none !important; } }
         textarea { scrollbar-width: none; -ms-overflow-style: none; } textarea::-webkit-scrollbar { display: none; }
 
         @media (max-width: 600px) {
@@ -751,6 +779,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
           .remove-row-btn { display: none !important; }
           .add-row-btn { display: none !important; }
           .sig-clear-row { display: none !important; }
+          .logo-label { border: none !important; cursor: default !important; }
 
           /* Invoice paper fills A4 exactly, scaled to fit */
           #invoice-paper {
@@ -792,6 +821,9 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
           .tc-page { display: block !important; page-break-before: always !important; padding: 20mm 15mm !important; }
         }
         .tc-page { display: none; }
+        @media print {
+          .logo-label { border: none !important; border-style: none !important; outline: none !important; box-shadow: none !important; }
+        }
 
       `}</style>
 
@@ -936,7 +968,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
         <div className="invoice-title" style={{ fontFamily: "Georgia, serif", fontSize: 26, color: ink, textAlign: "center", letterSpacing: 1, border: "2px solid " + ink, padding: "8px 16px", marginBottom: 16 }}>{isQuote ? "Quote / Estimate" : "Tax Invoice / Statement"}</div>
 
         <div className="invoice-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 16 }}>
-          <label style={{ width: 120, height: 70, border: "1.5px dashed #8888CC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 4, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+          <label className="logo-label no-print-border" style={{ width: 120, height: 70, border: "1.5px dashed #8888CC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 4, overflow: "hidden", flexShrink: 0, position: "relative" }}>
             {logoSrc ? <img src={logoSrc} alt="logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center", lineHeight: 1.5 }}>TAP TO<br />ADD LOGO</span>}
             <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
           </label>
@@ -1032,12 +1064,41 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
             <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: "#8888CC", fontStyle: "italic", marginTop: "auto" }}>* Indicates taxable supply</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {[["Sub Total", totals.subtotal, false], ["GST (10%)", totals.gstTotal, false], ["Total Inc. GST", totals.grandTotal, true]].map(([lbl, val, grand]) => (
-              <div key={lbl} style={{ display: "flex", alignItems: "center", borderBottom: grand ? "none" : "1px solid " + (isQuote ? "#B8DDC8" : "#C8C8E8"), minHeight: grand ? 50 : 38, background: grand ? paperDark : "transparent", padding: "0 10px" }}>
-                <span style={{ flex: 1, fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: ink }}>{lbl}</span>
-                <span style={{ fontFamily: "monospace", fontSize: grand ? 15 : 13, fontWeight: grand ? 700 : 400, color: grand ? accentColor : ink }}>${val}</span>
+            {/* Sub Total */}
+              <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid " + (isQuote ? "#B8DDC8" : "#C8C8E8"), minHeight: 38, background: "transparent", padding: "0 10px" }}>
+                <span style={{ flex: 1, fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: ink }}>Sub Total</span>
+                <span style={{ fontFamily: "monospace", fontSize: 13, color: ink }}>${totals.subtotal}</span>
               </div>
-            ))}
+              {/* Discount row */}
+              <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid " + (isQuote ? "#B8DDC8" : "#C8C8E8"), minHeight: 38, background: "transparent", padding: "0 10px" }}>
+                <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: ink, flex: 1 }}>
+                  Discount
+                  {parseFloat(discountPct) > 0 && <span style={{ fontWeight: 400, fontSize: 10, color: "#8888CC", marginLeft: 4 }}>({discountPct}%)</span>}
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <input
+                    type="number" min="0" max="100" step="0.5"
+                    value={discountPct || ""}
+                    onChange={e => setDiscountPct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                    placeholder="0"
+                    style={{ width: 36, border: "1px solid #C8C8E8", borderRadius: 4, padding: "2px 4px", fontFamily: "monospace", fontSize: 11, color: ink, textAlign: "center", background: "rgba(255,255,255,0.7)", outline: "none" }}
+                  />
+                  <span style={{ fontFamily: "monospace", fontSize: 11, color: ink }}>%</span>
+                </div>
+                <span style={{ fontFamily: "monospace", fontSize: 13, color: parseFloat(discountPct) > 0 ? "#C0392B" : "#aaa", minWidth: 60, textAlign: "right" }}>
+                  {parseFloat(discountPct) > 0 ? "-$" + totals.discountAmt : "—"}
+                </span>
+              </div>
+              {/* GST */}
+              <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid " + (isQuote ? "#B8DDC8" : "#C8C8E8"), minHeight: 38, background: "transparent", padding: "0 10px" }}>
+                <span style={{ flex: 1, fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: ink }}>GST (10%)</span>
+                <span style={{ fontFamily: "monospace", fontSize: 13, color: ink }}>${totals.gstTotal}</span>
+              </div>
+              {/* Total */}
+              <div style={{ display: "flex", alignItems: "center", minHeight: 50, background: paperDark, padding: "0 10px" }}>
+                <span style={{ flex: 1, fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: ink }}>Total Inc. GST</span>
+                <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 700, color: accentColor }}>${totals.grandTotal}</span>
+              </div>
           </div>
         </div>
 
