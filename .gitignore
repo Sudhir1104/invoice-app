@@ -25,3 +25,6 @@ dist-ssr
 
 .vercel
 .env 
+"OLD_Files/" 
+"public/App*.jsx" 
+"src/assets/App.jsx" 
