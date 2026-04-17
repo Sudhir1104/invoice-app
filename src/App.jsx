@@ -59,16 +59,19 @@ async function getUserId() {
 
 // Plan/premium check from tenants table (source of truth)
 async function dbGetTenantPlan(tenantId) {
-  if (!tenantId) return { plan: "trial", docLimit: 10 };
+  if (!tenantId) return { plan: "free", docLimit: 10 };
   const { data } = await supabase
     .from("tenants")
-    .select("plan, doc_limit, is_active")
+    .select("plan, doc_limit, is_active, trial_ends_at, monthly_doc_count, monthly_reset_date")
     .eq("id", tenantId)
     .maybeSingle();
   return {
-    plan: data?.plan || "trial",
+    plan: data?.plan || "free",
     docLimit: data?.doc_limit ?? 10,
     isActive: data?.is_active ?? true,
+    trialEndsAt: data?.trial_ends_at || null,
+    monthlyDocCount: data?.monthly_doc_count ?? 0,
+    monthlyResetDate: data?.monthly_reset_date || null,
   };
 }
 
@@ -483,11 +486,14 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitInfo, setLimitInfo] = useState(null);
   const [discountPct, setDiscountPct] = useState(0);
   const [tenantPlan, setTenantPlan] = useState({ plan: "trial", docLimit: 10 });
 
   const isAdmin = ADMIN_EMAILS.includes(user?.email);
-  const isPremium = isAdmin || tenantPlan.plan === "starter" || tenantPlan.plan === "growth" || tenantPlan.plan === "pro";
+  const isPremium = isAdmin || tenantPlan.plan === "founding_starter" || tenantPlan.plan === "starter" || tenantPlan.plan === "growth" || tenantPlan.plan === "pro";
+  const isActiveTrial = !isPremium && tenantPlan.trialEndsAt && new Date(tenantPlan.trialEndsAt) > new Date();
+  const trialDaysLeft = isActiveTrial ? Math.ceil((new Date(tenantPlan.trialEndsAt) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
   const docLimit = tenantPlan.docLimit ?? 10;
 
   const totals = calcTotals(doc.rows, discountPct);
@@ -595,9 +601,16 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
   };
 
   const saveDoc = async () => {
-    if (!docId && !isPremium && saved.length >= docLimit) {
-      setShowLimitModal(true);
-      return;
+    // For new documents only — check plan limits via database function
+    if (!docId) {
+      if (!isPremium && !isActiveTrial) {
+        const { data: check } = await supabase.rpc("check_and_increment_doc_count", { p_tenant_id: tenantId });
+        if (check && !check.allowed) {
+          setLimitInfo(check);
+          setShowLimitModal(true);
+          return;
+        }
+      }
     }
     // Mandatory field validation
     if (!doc.clientEmail || !doc.clientEmail.trim()) {
@@ -854,21 +867,57 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 12, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.3)", textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>🚀</div>
-            <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#2D2D7A", marginBottom: 10 }}>Document Limit Reached</div>
-            <p style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, marginBottom: 20 }}>
-              You've used all <strong>{docLimit} documents</strong> on the free plan. Upgrade to get unlimited invoices and quotes.
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 20, color: "#2D2D7A", marginBottom: 10 }}>Monthly Limit Reached</div>
+            <p style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, marginBottom: 8 }}>
+              You've used all <strong>10 free invoices</strong> this month.
+              {limitInfo?.resets_on && (
+                <span> Your limit resets on <strong>{new Date(limitInfo.resets_on).toLocaleDateString("en-AU", { day: "numeric", month: "long" })}</strong>.</span>
+              )}
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-              <a href="mailto:sudhir@bluesquaresolutions.com.au?subject=Upgrade Blue Square Invoice&body=Hi, I would like to upgrade my Blue Square Invoice account. My email is: " target="_blank"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#2D2D7A", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                ✉ Email Us to Upgrade
-              </a>
-              <a href="https://wa.me/61490143160?text=Hi%2C%20I%20would%20like%20to%20upgrade%20my%20Blue%20Square%20Invoice%20account." target="_blank"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", borderRadius: 8, background: "#25D366", color: "#fff", fontFamily: "monospace", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                WhatsApp Us to Upgrade
+            <p style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, marginBottom: 20 }}>
+              Upgrade to get <strong>unlimited invoices and quotes</strong> for just A$2.99/mo.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const res = await fetch(
+                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY },
+                        body: JSON.stringify({ plan: "founding", interval: "monthly", success_url: window.location.origin + "/?checkout=success", cancel_url: window.location.origin + "/?checkout=cancelled" }),
+                      }
+                    );
+                    const data = await res.json();
+                    if (data.error === "founding_full") {
+                      const res2 = await fetch(
+                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY },
+                          body: JSON.stringify({ plan: "starter", interval: "monthly", success_url: window.location.origin + "/?checkout=success", cancel_url: window.location.origin + "/?checkout=cancelled" }),
+                        }
+                      );
+                      const data2 = await res2.json();
+                      if (data2.url) window.location.href = data2.url;
+                    } else if (data.url) {
+                      window.location.href = data.url;
+                    }
+                  } catch (e) { showToast("Could not start checkout. Try again."); }
+                }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", borderRadius: 8, background: "#2D2D7A", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                🚀 Upgrade Now — Start 30-day Free Trial
+              </button>
+              <a href="https://invoice.bluesquaresolutions.com.au/pricing.html"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px", borderRadius: 8, background: "transparent", color: "#2D2D7A", border: "1.5px solid #2D2D7A", fontFamily: "monospace", fontSize: 12, textDecoration: "none" }}>
+                View Pricing Plans
               </a>
             </div>
-            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 16 }}>sudhir@bluesquaresolutions.com.au &nbsp;|&nbsp; +61 490 143 160</div>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#888", marginBottom: 12 }}>
+              {limitInfo?.resets_on && `Or wait until ${new Date(limitInfo.resets_on).toLocaleDateString("en-AU", { day: "numeric", month: "long" })} for your free limit to reset.`}
+            </div>
             <button onClick={() => setShowLimitModal(false)} style={{ padding: "8px 24px", borderRadius: 6, border: "1px solid #ddd", background: "#f5f5f5", fontFamily: "monospace", fontSize: 12, cursor: "pointer" }}>Close</button>
           </div>
         </div>
@@ -881,12 +930,35 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
 
       {loading && <div style={{ width: "100%", background: "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, color: "#2E7D32", letterSpacing: 1 }}>Syncing with cloud...</div>}
 
-      {/* Doc counter — hidden for paid/admin */}
-      {!isPremium && (
-        <div className="no-print" style={{ width: "100%", background: saved.length >= docLimit ? "#FEE2E2" : saved.length >= docLimit - 2 ? "#FEF3C7" : "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: saved.length >= docLimit ? "#991B1B" : saved.length >= docLimit - 2 ? "#92400E" : "#2E7D32" }}>
-          FREE: {saved.length} / {docLimit} documents used
-          {saved.length >= docLimit && <span style={{ marginLeft: 8, fontWeight: 700 }}>— Limit reached. Upgrade to continue.</span>}
-          {saved.length >= docLimit - 2 && saved.length < docLimit && <span style={{ marginLeft: 8 }}>— {docLimit - saved.length} remaining</span>}
+      {/* Trial expiry banner — shown when 7 days or less remaining */}
+      {isActiveTrial && trialDaysLeft <= 7 && (
+        <div className="no-print" style={{ width: "100%", background: trialDaysLeft <= 2 ? "#FEE2E2" : "#FEF3C7", textAlign: "center", padding: "6px 16px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: trialDaysLeft <= 2 ? "#991B1B" : "#92400E", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+          ⏰ Your free trial ends in <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</strong>. After that you'll move to the free plan (10 invoices/month).
+          <button
+            onClick={async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY },
+                  body: JSON.stringify({ plan: "founding", interval: "monthly", success_url: window.location.origin + "/?checkout=success", cancel_url: window.location.origin + "/?checkout=cancelled" }),
+                });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+              } catch { showToast("Could not start checkout. Try again."); }
+            }}
+            style={{ padding: "4px 12px", borderRadius: 6, background: trialDaysLeft <= 2 ? "#C0392B" : "#92400E", color: "#fff", border: "none", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+            Upgrade Now →
+          </button>
+        </div>
+      )}
+
+      {/* Doc counter — shown for free plan only (not trial, not premium) */}
+      {!isPremium && !isActiveTrial && (
+        <div className="no-print" style={{ width: "100%", background: tenantPlan.monthlyDocCount >= 10 ? "#FEE2E2" : tenantPlan.monthlyDocCount >= 8 ? "#FEF3C7" : "#E8F5E9", textAlign: "center", padding: "4px", fontFamily: "monospace", fontSize: 11, letterSpacing: 1, color: tenantPlan.monthlyDocCount >= 10 ? "#991B1B" : tenantPlan.monthlyDocCount >= 8 ? "#92400E" : "#2E7D32" }}>
+          FREE: {tenantPlan.monthlyDocCount} / 10 documents used this month
+          {tenantPlan.monthlyDocCount >= 10 && <span style={{ marginLeft: 8, fontWeight: 700 }}>— Limit reached. Upgrade or wait until next month.</span>}
+          {tenantPlan.monthlyDocCount >= 8 && tenantPlan.monthlyDocCount < 10 && <span style={{ marginLeft: 8 }}>— {10 - tenantPlan.monthlyDocCount} remaining this month</span>}
         </div>
       )}
 

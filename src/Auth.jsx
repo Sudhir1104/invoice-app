@@ -4,6 +4,37 @@ import { supabase } from "./supabase";
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
+// ── Disposable email domains to block ──────────────────────────────────────
+const DISPOSABLE_DOMAINS = [
+  "mailinator.com", "tempmail.com", "guerrillamail.com", "throwaway.email",
+  "yopmail.com", "10minutemail.com", "trashmail.com", "sharklasers.com",
+  "guerrillamailblock.com", "grr.la", "guerrillamail.info", "guerrillamail.biz",
+  "guerrillamail.de", "guerrillamail.net", "guerrillamail.org", "spam4.me",
+  "trashmail.at", "trashmail.io", "trashmail.me", "trashmail.net",
+  "dispostable.com", "mailnull.com", "spamgourmet.com", "spamgourmet.net",
+  "maildrop.cc", "tempr.email", "discard.email", "fakeinbox.com",
+  "mailnesia.com", "spamspot.com", "spamthisplease.com", "binkmail.com",
+  "bobmail.info", "chammy.info", "devnullmail.com", "objectmail.com",
+  "rtrtr.com", "soodonims.com", "spamevader.net",
+];
+
+function isDisposableEmail(email) {
+  const domain = email.split("@")[1]?.toLowerCase().trim();
+  if (!domain) return false;
+  return DISPOSABLE_DOMAINS.includes(domain);
+}
+
+// ── Gmail alias normalisation ───────────────────────────────────────────────
+function normalizeEmail(email) {
+  const lower = email.toLowerCase().trim();
+  const [local, domain] = lower.split("@");
+  if (!domain) return lower;
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return local.replace(/\+.*$/, "").replace(/\./g, "") + "@" + domain;
+  }
+  return lower;
+}
+
 function getLockoutKey(email) { return "lockout_" + email.toLowerCase().trim(); }
 
 function checkLockout(email) {
@@ -16,7 +47,6 @@ function checkLockout(email) {
       const remaining = Math.ceil((LOCKOUT_MS - elapsed) / 60000);
       return { locked: true, remaining, attempts: data.attempts };
     }
-    // Lockout expired — reset
     if (elapsed >= LOCKOUT_MS) {
       localStorage.removeItem(getLockoutKey(email));
       return { locked: false, remaining: 0, attempts: 0 };
@@ -30,7 +60,6 @@ function recordFailedAttempt(email) {
     const key = getLockoutKey(email);
     const raw = localStorage.getItem(key);
     const data = raw ? JSON.parse(raw) : { attempts: 0, lastAttempt: Date.now() };
-    // Reset count if last attempt was over 15 min ago
     if (Date.now() - data.lastAttempt >= LOCKOUT_MS) data.attempts = 0;
     data.attempts += 1;
     data.lastAttempt = Date.now();
@@ -70,13 +99,33 @@ export default function Auth() {
     setMessage("");
 
     if (isSignUp) {
+      // ── Disposable email check ──
+      if (isDisposableEmail(email)) {
+        setError("Please use a permanent email address to sign up. Temporary email services are not allowed.");
+        setLoading(false);
+        return;
+      }
+
+      // ── Gmail alias check ──
+      const normalized = normalizeEmail(email);
+      const original = email.toLowerCase().trim();
+      if (normalized !== original) {
+        setError("Please sign up with your base email address (without + aliases).");
+        setLoading(false);
+        return;
+      }
+
       if (!/[A-Z]/.test(password)) { setError("Password must contain at least 1 uppercase letter"); setLoading(false); return; }
       if (!/[a-z]/.test(password)) { setError("Password must contain at least 1 lowercase letter"); setLoading(false); return; }
       if (!/[^A-Za-z0-9]/.test(password)) { setError("Password must contain at least 1 special character (!@#$%^&*)"); setLoading(false); return; }
-      if (/012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz/i.test(password)) { setError("Password cannot contain sequential letters or numbers (e.g. abc, 123)"); setLoading(false); return; }
+      if (/012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz/i.test(password)) {
+        setError("Password cannot contain sequential letters or numbers (e.g. abc, 123)");
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
-        // Supabase returns this when email already exists
         if (error.message.toLowerCase().includes("already registered") ||
             error.message.toLowerCase().includes("already exists") ||
             error.message.toLowerCase().includes("user already")) {
@@ -85,7 +134,6 @@ export default function Auth() {
           setError(error.message);
         }
       } else if (data?.user?.identities?.length === 0) {
-        // Supabase silently returns a fake user when email exists + confirmations are on
         setError("An account with this email already exists. Please sign in instead.");
       } else {
         clearLockout(email);
@@ -138,14 +186,12 @@ export default function Auth() {
           {isSignUp ? "Create Account" : "Sign In"}
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{ background: "#FEE2E2", border: "1px solid #EF4444", borderRadius: 6, padding: "10px 14px", marginBottom: 16, fontFamily: "monospace", fontSize: 12, color: "#991B1B" }}>
             {error}
           </div>
         )}
 
-        {/* Success message */}
         {message && (
           <div style={{ background: "#D1FAE5", border: "1px solid #10B981", borderRadius: 6, padding: "10px 14px", marginBottom: 16, fontFamily: "monospace", fontSize: 12, color: "#065F46" }}>
             {message}
