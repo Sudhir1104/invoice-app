@@ -4,6 +4,7 @@ import { TenantProvider } from "./TenantContext";
 import Auth from "./Auth";
 import Onboarding from "./Onboarding";
 import InviteAccept from "./InviteAccept";
+import ResetPassword from "./ResetPassword";
 import App from "./App";
 import Admin from "./Admin";
 import TeamSettings from "./TeamSettings";
@@ -14,12 +15,23 @@ export default function AppRoot() {
   const [onboarded, setOnboarded] = useState(false);
   const [screen, setScreen] = useState("app"); // app | admin | team
   const [inviteToken, setInviteToken] = useState(null);
+  const [isResetPassword, setIsResetPassword] = useState(false);
 
-  // Check for invite token in URL
+  // Check for invite token, signin param, or password reset in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("invite");
     if (token) setInviteToken(token);
+
+    // Detect Supabase password recovery from URL hash
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery") || hash.includes("type=email_change")) {
+      setIsResetPassword(true);
+    }
+    // Also detect from search params (some Supabase configs use query params)
+    if (params.get("type") === "recovery") {
+      setIsResetPassword(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -56,11 +68,17 @@ export default function AppRoot() {
     );
   }
 
+  // Show reset password screen if coming from reset email
+  if (isResetPassword) return <ResetPassword />;
+
   // Not logged in — show invite accept or auth
   if (!user) {
     if (inviteToken) return <InviteAccept token={inviteToken} />;
-    // Redirect to pricing/landing page if not on /app route
-    if (window.location.pathname === "/" || window.location.pathname === "") {
+    // Check if user came from Sign In button (has ?signin=true)
+    const params = new URLSearchParams(window.location.search);
+    const isSignIn = params.get("signin") === "true";
+    // Redirect to pricing page unless they explicitly want to sign in
+    if (!isSignIn) {
       window.location.href = "/pricing.html";
       return null;
     }
@@ -77,12 +95,23 @@ export default function AppRoot() {
     return <Onboarding user={user} onComplete={() => setOnboarded(true)} />;
   }
 
-  // Main app with tenant context
+  // Main app — reset to "app" screen when user changes
+  // (prevents stale admin/team screen if re-login happens)
   return (
     <TenantProvider user={user}>
-      {screen === "admin" && <Admin user={user} onBack={() => setScreen("app")} />}
-      {screen === "team" && <TeamSettings user={user} onBack={() => setScreen("app")} />}
-      {screen === "app" && <App user={user} onShowAdmin={() => setScreen("admin")} onShowTeam={() => setScreen("team")} />}
+      {screen === "admin" && (
+        <Admin user={user} onBack={() => setScreen("app")} />
+      )}
+      {screen === "team" && (
+        <TeamSettings user={user} onBack={() => setScreen("app")} />
+      )}
+      {screen === "app" && (
+        <App
+          user={user}
+          onShowAdmin={() => setScreen("admin")}
+          onShowTeam={() => setScreen("team")}
+        />
+      )}
     </TenantProvider>
   );
 }

@@ -522,6 +522,16 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2800); };
 
+  // Inject print style to remove logo border — most reliable cross-browser approach
+  useEffect(() => {
+    const id = "logo-print-style";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = "@media print { .logo-label { border: none !important; border-width: 0 !important; border-style: none !important; outline: none !important; box-shadow: none !important; } }";
+    document.head.appendChild(style);
+  }, []);
+
 
   const signOut = async () => {
     if (!window.confirm("Sign out?")) return;
@@ -716,6 +726,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
     <div style={S.body}>
       <style>{`
         * { box-sizing: border-box; }
+        @media print { .no-print-border { border: none !important; border-width: 0 !important; border-style: none !important; outline: none !important; } }
         textarea { scrollbar-width: none; -ms-overflow-style: none; } textarea::-webkit-scrollbar { display: none; }
 
         @media (max-width: 600px) {
@@ -768,6 +779,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
           .remove-row-btn { display: none !important; }
           .add-row-btn { display: none !important; }
           .sig-clear-row { display: none !important; }
+          .logo-label { border: none !important; cursor: default !important; }
 
           /* Invoice paper fills A4 exactly, scaled to fit */
           #invoice-paper {
@@ -809,6 +821,9 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
           .tc-page { display: block !important; page-break-before: always !important; padding: 20mm 15mm !important; }
         }
         .tc-page { display: none; }
+        @media print {
+          .logo-label { border: none !important; border-style: none !important; outline: none !important; box-shadow: none !important; }
+        }
 
       `}</style>
 
@@ -953,7 +968,7 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
         <div className="invoice-title" style={{ fontFamily: "Georgia, serif", fontSize: 26, color: ink, textAlign: "center", letterSpacing: 1, border: "2px solid " + ink, padding: "8px 16px", marginBottom: 16 }}>{isQuote ? "Quote / Estimate" : "Tax Invoice / Statement"}</div>
 
         <div className="invoice-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 16 }}>
-          <label style={{ width: 120, height: 70, border: "1.5px dashed #8888CC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 4, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+          <label className="logo-label no-print-border" style={{ width: 120, height: 70, border: "1.5px dashed #8888CC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 4, overflow: "hidden", flexShrink: 0, position: "relative" }}>
             {logoSrc ? <img src={logoSrc} alt="logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ fontFamily: "monospace", fontSize: 11, color: "#8888CC", textAlign: "center", lineHeight: 1.5 }}>TAP TO<br />ADD LOGO</span>}
             <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }} />
           </label>
