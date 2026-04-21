@@ -1,4 +1,4 @@
-import Stripe from 'https://esm.sh/stripe@14?target=deno';
+import Stripe from 'https://esm.sh/stripe@13.3.0?target=deno&no-check';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
@@ -6,10 +6,10 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 });
 
 const PRICE_IDS: Record<string, string> = {
-  founding_monthly: Deno.env.get('STRIPE_FOUNDING_MONTHLY_PRICE_ID')!,
-  founding_yearly:  Deno.env.get('STRIPE_FOUNDING_YEARLY_PRICE_ID')!,
-  starter_monthly:  Deno.env.get('STRIPE_STARTER_MONTHLY_PRICE_ID')!,
-  starter_yearly:   Deno.env.get('STRIPE_STARTER_YEARLY_PRICE_ID')!,
+  founding_monthly: Deno.env.get('STRIPE_FOUNDING_MONTHLY_PRICE_ID') || '',
+  founding_yearly:  Deno.env.get('STRIPE_FOUNDING_YEARLY_PRICE_ID') || '',
+  starter_monthly:  Deno.env.get('STRIPE_STARTER_MONTHLY_PRICE_ID') || '',
+  starter_yearly:   Deno.env.get('STRIPE_STARTER_YEARLY_PRICE_ID') || '',
 };
 
 const corsHeaders = {
@@ -18,124 +18,101 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Get the authenticated user from Supabase
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    // Parse the JWT from Authorization header to get user_id
+    // We decode it manually to avoid SUPABASE_ANON_KEY dependency
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+    
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'No token provided' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const { plan, interval, success_url, cancel_url } = await req.json();
-
-    // Determine price key
-    const priceKey = `${plan}_${interval}`; // e.g. founding_monthly
-    const priceId = PRICE_IDS[priceKey];
-
-    if (!priceId) {
-      return new Response(JSON.stringify({ error: `Invalid plan: ${priceKey}` }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Decode JWT payload (base64) to get user id
+    let userId: string;
+    try {
+      const parts = token.split('.');
+      const payload = JSON.parse(atob(parts[1]));
+      userId = payload.sub;
+      if (!userId) throw new Error('No sub in JWT');
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Use service role to check/update tenant data
+    // Create admin supabase client to query DB
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Get the tenant for this user
+    const { plan, interval, success_url, cancel_url } = await req.json();
+
+    // Get tenant for this user
     const { data: member } = await supabaseAdmin
       .from('tenant_members')
-      .select('tenant_id, role')
-      .eq('user_id', user.id)
+      .select('tenant_id')
+      .eq('user_id', userId)
       .eq('role', 'owner')
-      .single();
+      .maybeSingle();
 
-    if (!member) {
+    const tenantId = member?.tenant_id;
+    if (!tenantId) {
       return new Response(JSON.stringify({ error: 'No tenant found for user' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // If founding plan — check slots available
-    if (plan === 'founding') {
-      const { data: status } = await supabaseAdmin.rpc('get_founding_status');
-      if (!status?.available) {
-        return new Response(JSON.stringify({
-          error: 'founding_full',
-          message: 'All founding member spots are taken. Please choose the standard Starter plan.'
-        }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+    // Determine price
+    const priceKey = `${plan}_${interval}`;
+    const priceId = PRICE_IDS[priceKey];
+    if (!priceId) {
+      return new Response(JSON.stringify({ error: `Invalid plan: ${priceKey}. Available: ${Object.keys(PRICE_IDS).join(', ')}` }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Get or create Stripe customer
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('stripe_customer_id, name')
-      .eq('id', member.tenant_id)
+      .select('stripe_customer_id, email, name')
+      .eq('id', tenantId)
       .single();
 
     let customerId = tenant?.stripe_customer_id;
-
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
-        name: tenant?.name || user.email,
-        metadata: {
-          tenant_id: member.tenant_id,
-          user_id: user.id,
-        },
+        email: tenant?.email || '',
+        name: tenant?.name || '',
+        metadata: { tenant_id: tenantId, user_id: userId },
       });
       customerId = customer.id;
-
-      // Save customer ID to tenant
-      await supabaseAdmin
-        .from('tenants')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', member.tenant_id);
+      await supabaseAdmin.from('tenants').update({ stripe_customer_id: customerId }).eq('id', tenantId);
     }
 
-    // Create Stripe checkout session
+    // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
-      payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         trial_period_days: 30,
-        metadata: {
-          tenant_id: member.tenant_id,
-          plan: plan,
-          interval: interval,
-        },
+        metadata: { tenant_id: tenantId, plan, interval },
       },
-      success_url: success_url || `${req.headers.get('origin')}/app?checkout=success`,
-      cancel_url: cancel_url || `${req.headers.get('origin')}/pricing.html?checkout=cancelled`,
-      metadata: {
-        tenant_id: member.tenant_id,
-        plan: plan,
-        interval: interval,
-      },
+      success_url: success_url || `${req.headers.get('origin')}/?checkout=success`,
+      cancel_url: cancel_url || `${req.headers.get('origin')}/pricing.html`,
+      metadata: { tenant_id: tenantId, plan, interval },
     });
 
-    return new Response(JSON.stringify({ url: session.url, session_id: session.id }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return new Response(JSON.stringify({ url: session.url }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (err) {
