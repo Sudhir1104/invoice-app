@@ -708,9 +708,9 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
   };
 
   const S = {
-    body: { minHeight: "100vh", background: isQuote ? "#D4E8D8" : "#E8E4D0", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 60px", overflowX: "hidden" },
+    body: { minHeight: "100vh", background: "#FFFFFF", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", padding: "0 0 60px", overflowX: "hidden" },
     toolbar: { width: "100%", maxWidth: 820, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px", gap: 10, flexWrap: "wrap" },
-    paper: { width: "100%", maxWidth: 820, background: paperBg, border: "1px solid #C8C0A0", boxShadow: "0 2px 6px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.12)", padding: "28px 32px 32px", position: "relative", borderLeft: "6px solid " + (isQuote ? "#6BA87A" : "#B8A870"), overflow: "hidden" },
+    paper: { width: "100%", maxWidth: 820, background: "#FFFFFF", border: "1px solid #C8C0A0", boxShadow: "0 2px 6px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.12)", padding: "28px 32px 32px", position: "relative", borderLeft: "6px solid " + (isQuote ? "#6BA87A" : "#B8A870"), overflow: "hidden" },
     label: { fontFamily: "monospace", fontSize: 10, fontWeight: 700, letterSpacing: 1, color: ink, textTransform: "uppercase", display: "block", marginBottom: 4 },
     metaInput: { border: "none", background: "transparent", fontFamily: "monospace", fontSize: 15, color: ink, width: "100%", outline: "none", padding: 0 },
     textarea: { border: "none", background: "transparent", fontFamily: "Lato, sans-serif", fontSize: 13, color: ink, width: "100%", height: 64, outline: "none", resize: "none", lineHeight: 1.6, overflow: "hidden", scrollbarWidth: "none" },
@@ -1174,6 +1174,11 @@ export default function App({ user, onShowAdmin, onShowTeam }) {
           </div>
         </div>
 
+        {logoSrc && (
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 0, opacity: 0.06, width: 350, height: 350 }}>
+            <img src={logoSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+        )}
         {payStatus !== "unpaid" && (
           <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%) rotate(-30deg)", fontFamily: "monospace", fontSize: 60, fontWeight: 700, color: payStatus === "paid" ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 0 }}>{payStatus.toUpperCase()}</div>
         )}

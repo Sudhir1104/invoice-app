@@ -33,7 +33,7 @@ export default function Onboarding({ user, onComplete }) {
           name: coName, abn: coAbn, address: coAddr, phone: coPhone
         }).eq("id", tenantId);
         await supabase.from("profiles").update({
-          company_name: coName, abn: coAbn, address: coAddr, phone: coPhone
+          company_name: coName, abn: coAbn, address: coAddr, phone: coPhone, email: user.email
         }).eq("tenant_id", tenantId);
       } else {
         const { data: tenant, error: tenantErr } = await supabase
@@ -44,7 +44,7 @@ export default function Onboarding({ user, onComplete }) {
         tenantId = tenant.id;
 
         await supabase.from("profiles").update({
-          company_name: coName, abn: coAbn, address: coAddr, phone: coPhone
+          company_name: coName, abn: coAbn, address: coAddr, phone: coPhone, email: user.email
         }).eq("tenant_id", tenantId);
 
         const { data: existingCounter } = await supabase.from("counters").select("id").eq("tenant_id", tenantId).maybeSingle();
